@@ -1,0 +1,1412 @@
+/* ==========================================================================
+   Rateio de Faturas — Apple iOS Native PWA Design System
+   Designed specifically for iPhone Safari & Standalone PWA
+   ========================================================================== */
+
+:root {
+  /* Paleta Light (Apple iOS System Colors) */
+  --bg: #F2F2F7;
+  --surface: #FFFFFF;
+  --surface-secondary: #F8F8F9;
+  --elevated: #FFFFFF;
+  --grouped: #F2F2F7;
+  --label: #000000;
+  --secondary: #8E8E93;
+  --tertiary: #C7C7CC;
+  --quaternary: #E5E5EA;
+  --separator: rgba(60, 60, 67, 0.12);
+  --separator-opaque: #E5E5EA;
+  
+  --fill: rgba(120, 120, 128, 0.08);
+  --fill-secondary: rgba(120, 120, 128, 0.16);
+  --fill-tertiary: rgba(120, 120, 128, 0.24);
+  
+  --accent: #007AFF;
+  --accent-press: #0062CC;
+  --accent-soft: rgba(0, 122, 255, 0.10);
+  --accent-tint: #EBF5FF;
+  
+  --ok: #34C759;
+  --ok-press: #248A3D;
+  --ok-bg: rgba(52, 199, 89, 0.12);
+  --ok-solid: #34C759;
+  
+  --warn: #FF9500;
+  --warn-press: #C77B00;
+  --warn-bg: rgba(255, 149, 0, 0.12);
+  
+  --bad: #FF3B30;
+  --bad-press: #D70015;
+  --bad-bg: rgba(255, 59, 48, 0.12);
+  
+  --on-accent: #FFFFFF;
+  --nav-bg: rgba(249, 249, 249, 0.88);
+  --hairline: rgba(60, 60, 67, 0.18);
+  
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.06);
+  --shadow-sheet: 0 -10px 40px rgba(0, 0, 0, 0.14);
+  
+  /* Cores de Bancos */
+  --banco-nubank: #820AD1;
+  --banco-mercadopago: #009EE3;
+  --banco-santander: #CC0000;
+  --banco-picpay: #11C76F;
+  --banco-default: #007AFF;
+  
+  /* Tipografia & Formas */
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", system-ui, sans-serif;
+  --num: tabular-nums lining-nums;
+  --touch: 44px;
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
+  
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  /* Paleta Dark (Apple iOS True OLED Black) */
+  --bg: #000000;
+  --surface: #1C1C1E;
+  --surface-secondary: #2C2C2E;
+  --elevated: #2C2C2E;
+  --grouped: #000000;
+  --label: #FFFFFF;
+  --secondary: #8E8E93;
+  --tertiary: #636366;
+  --quaternary: #3A3A3C;
+  --separator: rgba(84, 84, 88, 0.45);
+  --separator-opaque: #38383A;
+  
+  --fill: rgba(120, 120, 128, 0.24);
+  --fill-secondary: rgba(120, 120, 128, 0.36);
+  --fill-tertiary: rgba(120, 120, 128, 0.48);
+  
+  --accent: #0A84FF;
+  --accent-press: #409CFF;
+  --accent-soft: rgba(10, 132, 255, 0.20);
+  --accent-tint: rgba(10, 132, 255, 0.15);
+  
+  --ok: #30D158;
+  --ok-press: #28B848;
+  --ok-bg: rgba(48, 209, 88, 0.18);
+  --ok-solid: #30D158;
+  
+  --warn: #FFD60A;
+  --warn-press: #E5BE00;
+  --warn-bg: rgba(255, 214, 10, 0.16);
+  
+  --bad: #FF453A;
+  --bad-press: #FF6961;
+  --bad-bg: rgba(255, 69, 58, 0.20);
+  
+  --on-accent: #FFFFFF;
+  --nav-bg: rgba(22, 22, 24, 0.88);
+  --hairline: rgba(84, 84, 88, 0.50);
+  
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-sheet: 0 -12px 48px rgba(0, 0, 0, 0.75);
+  
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   Base & Reset
+   ========================================================================== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--label);
+  font-family: var(--font);
+  font-size: 17px;
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+body {
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-bottom: calc(56px + max(12px, env(safe-area-inset-bottom)));
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+}
+
+body.overlay {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+}
+
+button {
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+}
+
+button:active {
+  opacity: 0.75;
+}
+
+img, svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* Container do App — Proporções do iPhone */
+#app {
+  max-width: 440px;
+  margin: 0 auto;
+  min-height: calc(100dvh - 56px - env(safe-area-inset-bottom) - env(safe-area-inset-top));
+  padding: 0 0 32px;
+  display: flex;
+  flex-direction: column;
+}
+
+body.overlay #app {
+  min-height: 100dvh;
+}
+
+/* ==========================================================================
+   Tipografia
+   ========================================================================== */
+.large-title {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--label);
+}
+
+.nav-title {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 22px 20px 8px;
+}
+
+.footnote {
+  font-size: 13px;
+  color: var(--secondary);
+  line-height: 1.4;
+  margin: 6px 20px 0;
+}
+
+.mut { color: var(--secondary); }
+.ter { color: var(--tertiary); }
+.sm { font-size: 13px; line-height: 1.35; }
+.xs { font-size: 11px; line-height: 1.3; }
+.bold { font-weight: 600; }
+.bolder { font-weight: 700; }
+
+.ok { color: var(--ok); }
+.warn { color: var(--warn); }
+.bad { color: var(--bad); }
+
+.money {
+  font-variant-numeric: var(--num);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.money-xl {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: var(--num);
+  line-height: 1.1;
+  color: var(--label);
+}
+
+.money-lg {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: var(--num);
+}
+
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   Navegação e Cabeçalhos (TopBar)
+   ========================================================================== */
+.topbar {
+  display: grid;
+  grid-template-columns: 56px 1fr 56px;
+  align-items: center;
+  min-height: 48px;
+  padding: 4px 12px 6px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.topbar .link {
+  color: var(--accent);
+  font-size: 17px;
+  min-height: var(--touch);
+  min-width: var(--touch);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  transition: opacity 0.15s;
+}
+
+.topbar .link:active {
+  opacity: 0.5;
+}
+
+.topbar .link.bad {
+  color: var(--bad);
+}
+
+.topbar .right {
+  justify-self: end;
+}
+
+/* Cabeçalho de Tela Principal (Início, Pessoas, Ajustes) */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px 12px;
+}
+
+.brand-greeting {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-sub {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+/* Seletor de Mês (Pill iOS) */
+.month-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 34px;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.month-pill:active {
+  background: var(--fill-secondary);
+}
+
+.month-pill svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.5;
+}
+
+.month-pill select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 16px; /* Evita zoom automático no iOS Safari */
+}
+
+/* ==========================================================================
+   Grupos de Células (Apple Grouped Tables)
+   ========================================================================== */
+.group {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  margin: 0 16px 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 50px;
+  padding: 12px 16px;
+  position: relative;
+  background: var(--surface);
+  transition: background-color 0.12s ease;
+}
+
+.cell + .cell::before {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 0;
+  top: 0;
+  height: 0.5px;
+  background: var(--separator);
+}
+
+.cell.inset + .cell::before {
+  left: 56px;
+}
+
+.cell .grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.cell .chev {
+  width: 14px;
+  height: 14px;
+  color: var(--tertiary);
+  flex-shrink: 0;
+}
+
+.cell.pressable {
+  cursor: pointer;
+}
+
+.cell.pressable:active {
+  background: var(--fill);
+}
+
+/* ==========================================================================
+   Herói Financeiro (Resumo de Saldo)
+   ========================================================================== */
+.hero {
+  background: var(--surface);
+  border-radius: var(--radius-xl);
+  margin: 0 16px 14px;
+  padding: 22px 20px 20px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero .hero-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.hero .bar-wrap {
+  margin-top: 18px;
+}
+
+.hero .bar {
+  height: 6px;
+  background: var(--fill);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.hero .bar > i {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+  border-radius: 999px;
+  width: 0;
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hero .sub-metrics {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--separator);
+  gap: 12px;
+  text-align: left;
+}
+
+.hero .sub-metrics div {
+  flex: 1;
+}
+
+.hero .sub-metrics .k {
+  font-size: 12px;
+  color: var(--secondary);
+  margin-bottom: 2px;
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   Badges e Indicadores
+   ========================================================================== */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  color: var(--secondary);
+  letter-spacing: -0.01em;
+}
+
+.pill.ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.pill.warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.pill.bad {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
+.pill.accent {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   Ícones de Bancos & Marcas
+   ========================================================================== */
+.banco-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #FFFFFF;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+}
+
+.banco-nubank { background: var(--banco-nubank); }
+.banco-mercadopago { background: var(--banco-mercadopago); }
+.banco-santander { background: var(--banco-santander); }
+.banco-picpay { background: var(--banco-picpay); }
+.banco-default { background: var(--banco-default); }
+
+/* Avatar de Pessoas */
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   Controle Segmentado (Segmented Control iOS)
+   ========================================================================== */
+.seg {
+  display: flex;
+  margin: 0 16px 14px;
+  padding: 3px;
+  background: var(--fill-secondary);
+  border-radius: 11px;
+  gap: 2px;
+}
+
+.seg button {
+  flex: 1;
+  min-height: 32px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--label);
+  text-align: center;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.seg button.on {
+  background: var(--surface);
+  color: var(--label);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0.5px 1px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .seg button.on {
+  background: #3A3A3C;
+  color: #FFFFFF;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* ==========================================================================
+   Botões iOS
+   ========================================================================== */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 20px;
+  border-radius: var(--radius-md);
+  font-size: 17px;
+  font-weight: 600;
+  width: 100%;
+  transition: all 0.15s ease;
+  letter-spacing: -0.015em;
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.btn.primary:active {
+  background: var(--accent-press);
+  transform: scale(0.985);
+}
+
+.btn.secondary {
+  background: var(--fill);
+  color: var(--accent);
+}
+
+.btn.secondary:active {
+  background: var(--fill-secondary);
+  transform: scale(0.985);
+}
+
+.btn.ghost {
+  color: var(--accent);
+  min-height: 44px;
+}
+
+.btn.danger {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
+.btn.danger:active {
+  background: rgba(255, 59, 48, 0.2);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.fab-wrap {
+  margin: 16px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 16px;
+}
+
+/* ==========================================================================
+   Campos de Formulário
+   ========================================================================== */
+.field {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  min-height: 24px;
+  outline: none;
+  font-size: 17px;
+  color: var(--label);
+}
+
+.field::placeholder {
+  color: var(--tertiary);
+}
+
+.field-label {
+  font-size: 13px;
+  color: var(--secondary);
+  display: block;
+  margin-bottom: 4px;
+}
+
+textarea.field {
+  resize: vertical;
+  min-height: 96px;
+  line-height: 1.4;
+}
+
+/* ==========================================================================
+   Barra de Navegação Inferior (Tabbar iOS)
+   ========================================================================== */
+#tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  background: var(--nav-bg);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-top: 0.5px solid var(--hairline);
+  padding: 4px 6px max(6px, env(safe-area-inset-bottom));
+  height: calc(52px + max(6px, env(safe-area-inset-bottom)));
+}
+
+body.overlay #tabbar {
+  display: none;
+}
+
+#tabbar button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 46px;
+  color: var(--secondary);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: color 0.15s ease;
+}
+
+#tabbar button svg {
+  width: 24px;
+  height: 24px;
+  transition: transform 0.15s ease;
+}
+
+#tabbar button.on {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+#tabbar button:active svg {
+  transform: scale(0.92);
+}
+
+/* ==========================================================================
+   Lista de Itens (Faturas e Lançamentos)
+   ========================================================================== */
+.item-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.item-main .desc {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--label);
+  letter-spacing: -0.015em;
+}
+
+.item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+  align-items: center;
+}
+
+/* ==========================================================================
+   Estados Vazios e Status
+   ========================================================================== */
+.empty {
+  text-align: center;
+  padding: 56px 32px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.empty .ico {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: var(--fill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 18px;
+  color: var(--secondary);
+}
+
+.empty .ico svg {
+  width: 32px;
+  height: 32px;
+}
+
+.empty h2 {
+  font-size: 22px;
+  margin: 0 0 8px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.empty p {
+  margin: 0 0 24px;
+  color: var(--secondary);
+  font-size: 15px;
+  line-height: 1.4;
+  max-width: 300px;
+}
+
+.status-card {
+  margin: 0 16px 14px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.status-card.warn {
+  background: var(--warn-bg);
+}
+
+.status-card.bad {
+  background: var(--bad-bg);
+}
+
+.status-card.ok {
+  background: var(--ok-bg);
+}
+
+.offline-bar {
+  margin: 8px 16px 12px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--fill);
+  color: var(--secondary);
+  font-size: 13px;
+  text-align: center;
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   Origens de Importação (Screen 3)
+   ========================================================================== */
+.origin {
+  display: grid;
+  gap: 12px;
+  margin: 12px 16px;
+}
+
+.origin button {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  min-height: 76px;
+  text-align: left;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.15s, transform 0.15s;
+}
+
+.origin button:active {
+  background: var(--fill);
+  transform: scale(0.99);
+}
+
+.origin .ico {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.origin .ico.gmail {
+  background: rgba(234, 67, 53, 0.12);
+  color: #EA4335;
+}
+
+.origin .ico.outlook {
+  background: rgba(0, 120, 212, 0.12);
+  color: #0078D4;
+}
+
+.origin .ico.file {
+  background: rgba(255, 149, 0, 0.12);
+  color: #FF9500;
+}
+
+.origin .ico.clip {
+  background: rgba(52, 199, 89, 0.12);
+  color: #34C759;
+}
+
+.origin b {
+  display: block;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--label);
+}
+
+.origin span {
+  display: block;
+  font-size: 13px;
+  color: var(--secondary);
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   Processamento & Animações (Screen 4)
+   ========================================================================== */
+.proc {
+  padding: 48px 24px 32px;
+  text-align: center;
+}
+
+.proc-ring-container {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 24px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.proc-ring {
+  width: 96px;
+  height: 96px;
+  transform: rotate(-90deg);
+}
+
+.proc-ring circle {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.proc-ring .ring-bg {
+  stroke: var(--fill-secondary);
+}
+
+.proc-ring .ring-val {
+  stroke: var(--accent);
+  stroke-dasharray: 251.2;
+  stroke-dashoffset: 75.36; /* ~70% */
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.proc-ring-pct {
+  position: absolute;
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: var(--num);
+  color: var(--label);
+}
+
+.proc-steps {
+  max-width: 280px;
+  margin: 24px auto;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.proc-step-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  color: var(--secondary);
+}
+
+.proc-step-item.done {
+  color: var(--label);
+  font-weight: 500;
+}
+
+.proc-step-item.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.proc-step-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.proc-step-item.done .proc-step-icon {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.proc-step-item.active .proc-step-icon {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.proc-step-item.pending .proc-step-icon {
+  border: 1.5px solid var(--tertiary);
+}
+
+/* ==========================================================================
+   Conferência de Fatura (Screen 5)
+   ========================================================================== */
+.conf-summary-card {
+  background: var(--surface);
+  border-radius: var(--radius-xl);
+  margin: 0 16px 14px;
+  padding: 18px 18px;
+  box-shadow: var(--shadow-sm);
+}
+
+.conf-bank-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 0.5px solid var(--separator);
+  margin-bottom: 16px;
+}
+
+.conf-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.conf-grid .metric {
+  display: flex;
+  flex-direction: column;
+}
+
+.conf-grid .metric-label {
+  font-size: 13px;
+  color: var(--secondary);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.conf-grid .metric-value {
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: var(--num);
+  color: var(--label);
+}
+
+.conf-status-card {
+  margin: 0 16px 14px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.conf-status-card.ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.conf-status-card.warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.conf-status-card .status-ico {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: currentColor;
+  color: var(--surface);
+  flex-shrink: 0;
+}
+
+.conf-status-card .status-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.conf-status-card .status-sub {
+  font-size: 13px;
+  font-variant-numeric: var(--num);
+}
+
+/* ==========================================================================
+   Bottom Sheet (Modal Inferior iOS)
+   ========================================================================== */
+.sheet-root {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.sheet-root[hidden] {
+  display: none;
+}
+
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease;
+}
+
+.sheet {
+  position: relative;
+  background: var(--elevated);
+  border-radius: 20px 20px 0 0;
+  max-height: 90dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 0 calc(20px + max(12px, env(safe-area-inset-bottom)));
+  box-shadow: var(--shadow-sheet);
+  animation: slideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.sheet .grab {
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--tertiary);
+  margin: 2px auto 14px;
+}
+
+.sheet h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  text-align: center;
+  padding: 0 48px 12px;
+  letter-spacing: -0.015em;
+}
+
+.sheet .sheet-pad {
+  padding: 0 16px;
+}
+
+.sheet .rest {
+  text-align: center;
+  font-size: 15px;
+  margin: 10px 16px 14px;
+  font-variant-numeric: var(--num);
+  font-weight: 600;
+}
+
+.action-list button {
+  display: block;
+  width: 100%;
+  padding: 15px 16px;
+  font-size: 18px;
+  text-align: center;
+  color: var(--accent);
+  border-top: 0.5px solid var(--separator);
+  font-weight: 500;
+}
+
+.action-list button.bad {
+  color: var(--bad);
+}
+
+.action-list button.muted {
+  color: var(--label);
+  font-weight: 600;
+}
+
+.action-list button:active {
+  background: var(--fill);
+}
+
+/* ==========================================================================
+   Toast Notification (Pill iOS)
+   ========================================================================== */
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(76px + max(12px, env(safe-area-inset-bottom)));
+  transform: translateX(-50%) translateY(16px);
+  z-index: 60;
+  background: rgba(30, 30, 32, 0.94);
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 18px;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: min(90vw, 360px);
+  text-align: center;
+  letter-spacing: -0.01em;
+}
+
+[data-theme="dark"] #toast {
+  background: rgba(240, 240, 245, 0.95);
+  color: #000000;
+}
+
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+body.overlay #toast {
+  bottom: calc(28px + max(12px, env(safe-area-inset-bottom)));
+}
+
+/* ==========================================================================
+   Rateio de Lançamento (Screen 8)
+   ========================================================================== */
+.rat-row {
+  align-items: center;
+  padding: 10px 16px;
+}
+
+.rat-row input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--accent);
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.rat-amt {
+  width: 7.6em;
+  text-align: right;
+  background: var(--fill);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-variant-numeric: var(--num);
+  font-weight: 600;
+  min-height: 40px;
+  font-size: 16px;
+  color: var(--label);
+}
+
+.rat-sub {
+  font-size: 12px;
+  color: var(--secondary);
+  text-align: right;
+  margin-top: 3px;
+  font-variant-numeric: var(--num);
+}
+
+/* Reaproveitamento de Rateio (Screen 9) */
+.reuse-card {
+  background: var(--surface);
+  border-radius: var(--radius-xl);
+  margin: 16px;
+  padding: 24px 20px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Cobrança via Pix (Screen 11) */
+.pix-preview-card {
+  background: var(--fill);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  margin: 12px 16px 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--label);
+  white-space: pre-wrap;
+  font-variant-numeric: var(--num);
+  border: 1px solid var(--separator);
+}
+
+/* Chave Pix */
+.pix-key {
+  font-size: 15px;
+  word-break: break-all;
+  font-variant-numeric: var(--num);
+  background: var(--fill);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  color: var(--label);
+  font-weight: 500;
+}
+
+/* Indicadores de Rádio nos Ajustes */
+.radio-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--tertiary);
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.cell.on .radio-mark {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 4px var(--surface);
+}
+
+/* Indicador de passos */
+.steps {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin: 8px 0 16px;
+}
+
+.steps i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fill-secondary);
+  transition: all 0.2s ease;
+}
+
+.steps i.on {
+  background: var(--accent);
+  width: 18px;
+  border-radius: 4px;
+}
+
+/* Foco & Acessibilidade */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+/* Storage Bar nos Ajustes */
+.storage-bar {
+  height: 8px;
+  background: var(--fill-secondary);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.storage-bar-val {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+}
