@@ -205,25 +205,40 @@ Usuário -> Rateio de Faturas -> Microsoft -> Autorização -> Microsoft Graph
 
 Essas integrações devem solicitar apenas permissões mínimas e respeitar princípios de segurança e privacidade.
 
-## Configuração OAuth (Gmail e Outlook)
+## Conexão com Gmail e Outlook
 
-A autenticação é configurada **uma única vez** pelo responsável pelo aplicativo (Client IDs públicos).
-Cada usuário autoriza a **própria** conta ao usar a aplicação — ninguém precisa criar um projeto no
-Google Cloud ou no Azure.
+O aplicativo permite que **qualquer usuário** conecte a **própria** conta de e-mail (Gmail ou Outlook)
+e importe faturas diretamente. O usuário **não** precisa criar projetos no Google Cloud ou no
+Microsoft Entra, informar Client IDs, configurar APIs ou executar qualquer procedimento técnico.
 
-### Onde preencher os Client IDs
+Toda a configuração é feita **uma única vez** pelo responsável pelo aplicativo, em
+[oauth-config.js](oauth-config.js). Não existe — e não deve existir — nenhuma tela de configuração de
+credenciais para o usuário comum.
 
-Os valores reais podem ser definidos de duas formas:
+### Como funciona para o usuário
 
-1. **Em tempo de execução**, na própria aplicação: *Ajustes → Gerenciar credenciais OAuth* (gravados em `localStorage`).
-2. **No código**, editando [oauth-config.js](oauth-config.js) (constantes `DEFAULT_GOOGLE_CLIENT_ID` e
-   `DEFAULT_MICROSOFT_CLIENT_ID`). Consulte o arquivo de exemplo comentado em
-   [oauth-config.example.js](oauth-config.example.js).
+1. Em **Faturas → Importar**, escolher **Gmail** ou **Outlook**.
+2. Autorizar o acesso na janela oficial do provedor (Google ou Microsoft).
+3. Pesquisar as mensagens, escolher a fatura e importar.
 
-Nunca inclua *Client Secret* no frontend — uma SPA pública não possui segredo. Os Client IDs são
-públicos por natureza em aplicações executadas no navegador.
+Os detalhes técnicos (OAuth, PKCE, Client ID, escopos, Redirect URI) ficam totalmente escondidos do
+usuário. Se a integração ainda não tiver sido configurada pelo responsável, o aplicativo exibe apenas
+um aviso administrativo, sem instruções técnicas.
 
-### Google Cloud (Gmail)
+### Configuração administrativa (responsável pelo aplicativo)
+
+Os Client IDs reais são definidos **somente no código**, editando [oauth-config.js](oauth-config.js).
+Consulte os comentários de [oauth-config.example.js](oauth-config.example.js). Enquanto os valores
+permanecerem como `SEU_*`, as conexões ficam indisponíveis e o usuário vê o aviso administrativo.
+
+> Nunca inclua *Client Secret* no frontend — uma SPA pública não possui segredo. Os Client IDs são
+> públicos por natureza em aplicações executadas no navegador.
+
+A **Redirect URI** é derivada automaticamente da página atual (origem + caminho). O mesmo valor
+precisa ser cadastrado nos dois consoles. Para o GitHub Pages em subdiretório, por exemplo:
+`https://devopsmarcu.github.io/rateio/`.
+
+#### Google Cloud (Gmail)
 
 1. Criar/selecionar um projeto no [Google Cloud Console](https://console.cloud.google.com/).
 2. Ativar a **Gmail API**.
@@ -232,23 +247,46 @@ públicos por natureza em aplicações executadas no navegador.
 4. Criar um **ID do cliente OAuth** do tipo **Aplicativo da Web**.
 5. Em **Origens JavaScript autorizadas**, incluir a origem de publicação, por exemplo
    `https://devopsmarcu.github.io`.
-6. Em **URIs de redirecionamento autorizados**, incluir `https://devopsmarcu.github.io/rateio/`
-   (ou a raiz, conforme o diretório do projeto).
-7. Escopos utilizados: `https://www.googleapis.com/auth/gmail.readonly` (somente leitura de mensagens).
+6. Em **URIs de redirecionamento autorizados**, incluir a URL do app, por exemplo
+   `https://devopsmarcu.github.io/rateio/`.
+7. Escopo utilizado: `https://www.googleapis.com/auth/gmail.readonly` (somente leitura de mensagens).
+
+A implementação usa o **Google Identity Services (GIS)** com o escopo mínimo `gmail.readonly`
+(pesquisar mensagens, ler o corpo e baixar anexos). Nenhuma permissão de envio, exclusão ou
+modificação é solicitada.
 
 > **Verificação obrigatória:** `gmail.readonly` é um escopo restrito. Para uso **público**, o Google
 > exige um processo de verificação/avaliação de segurança. Enquanto isso não é concluído, apenas
 > contas de teste cadastradas conseguem autorizar. Um Client ID válido **não** dispensa essa exigência.
 
-### Microsoft Entra (Outlook / Hotmail / Microsoft 365)
+#### Microsoft Entra (Outlook / Hotmail / Microsoft 365)
 
 1. Acessar o [Microsoft Entra](https://entra.microsoft.com/) (ou o portal do Azure).
 2. **Registros de aplicativo → Novo registro**.
 3. Tipos de conta: *Contas em qualquer diretório organizacional e contas pessoais da Microsoft*.
-4. Em **Autenticação**, habilitar a plataforma **Single-page application (SPA)** e cadastrar o
-   redirect URI (`https://devopsmarcu.github.io/rateio/`). O fluxo usa **Authorization Code + PKCE**.
+4. Em **Autenticação**, habilitar a plataforma **Single-page application (SPA)** e cadastrar a
+   Redirect URI (`https://devopsmarcu.github.io/rateio/`). O fluxo usa **Authorization Code + PKCE**.
 5. Permissões de API delegadas do **Microsoft Graph**: `User.Read` e `Mail.Read` (somente leitura).
 6. Se a organização exigir, conceder **consentimento administrativo**.
+
+A implementação usa o **MSAL Browser** com `loginRedirect` (Authorization Code + PKCE) e o
+**Microsoft Graph** para pesquisar e ler mensagens e anexos.
+
+### Notas de arquitetura
+
+O aplicativo é servido com `Cross-Origin-Opener-Policy: same-origin` e
+`Cross-Origin-Embedder-Policy: require-corp`, necessários para o `SharedArrayBuffer`/OPFS do SQLite.
+Como o COOP secciona janelas de popup, o fluxo do Google (que depende de popup) é executado na página
+ponte [oauth.html](oauth.html), servida **sem** esses cabeçalhos, e o resultado volta por
+`BroadcastChannel`. O Outlook usa redirect, portanto não depende de popup. Nenhuma dessas etapas
+aparece para o usuário.
+
+### Segurança
+
+- os tokens de acesso ficam **apenas em `sessionStorage`** (efêmeros, por aba) — nunca em `localStorage`;
+- nenhuma senha e nenhum *Client Secret* são usados ou armazenados;
+- tokens e conteúdo de mensagens **nunca são escritos em logs** (a função `redact` mascara dados sensíveis);
+- ao desconectar, todo o estado (tokens, e-mail e cache) é removido.
 
 ### Como testar
 
@@ -256,7 +294,8 @@ públicos por natureza em aplicações executadas no navegador.
 node test_oauth.mjs
 ```
 
-A suíte usa *mocks* das APIs externas e não requer credenciais reais.
+A suíte usa *mocks* das APIs externas, não requer credenciais reais e verifica, entre outros, que
+tokens nunca aparecem em logs e que os tokens ficam apenas em `sessionStorage`.
 
 > Funcionar com a conta do desenvolvedor **não** significa que a integração está pronta para uso
 > público: o processo de verificação, consentimento e políticas dos dois provedores ainda é necessário.

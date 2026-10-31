@@ -1,75 +1,101 @@
 // ==========================================================================
-// Rateio de Faturas — Configurações Centralizadas de OAuth 2.0
-// Provedores: Google Identity Services (Gmail) & Microsoft Identity (Outlook)
+// Rateio de Faturas — Configuração centralizada das integrações de e-mail
+// Gmail (Google Identity Services) e Outlook (Microsoft Identity / MSAL)
 // ==========================================================================
+//
+// ARQUIVO ADMINISTRATIVO. Preenchido UMA VEZ pelo responsável pelo projeto.
+// Os valores abaixo NÃO são segredos: em uma SPA tudo que vai ao navegador é
+// público. Mesmo assim, o usuário comum nunca deve ver nem preencher estes
+// campos — por isso não existe nenhuma tela de configuração de credenciais
+// no aplicativo.
+//
+// Para liberar as integrações, substitua os valores "SEU_*" pelos IDs reais
+// registrados nos consoles (ver README.md, seção "Configuração administrativa").
+// Enquanto permanecerem como "SEU_*", o aplicativo exibe um aviso administrativo
+// e as conexões ficam indisponíveis.
+
+// --------------------------------------------------------------------------
+// Client IDs (obrigatórios para liberar cada integração)
+// --------------------------------------------------------------------------
+
+// Google Cloud Console -> APIs e serviços -> Credenciais -> ID do cliente OAuth
+// (tipo "Aplicativo da Web"). Ex.: 123456789012-abc....apps.googleusercontent.com
+const GOOGLE_CLIENT_ID = 'SEU_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+
+// Microsoft Entra -> Registros de aplicativo -> Application (client) ID.
+// Ex.: 00000000-0000-0000-0000-000000000000
+const MICROSOFT_CLIENT_ID = 'SEU_MICROSOFT_CLIENT_ID';
+
+// Texto exibido ao usuário comum quando a integração ainda não foi configurada.
+export const ADMIN_NOT_CONFIGURED_MSG =
+  'Esta integração ainda não está configurada. Entre em contato com o responsável pelo aplicativo.';
+
+// --------------------------------------------------------------------------
+// URL de redirecionamento
+// --------------------------------------------------------------------------
 
 /**
- * Configuração centralizada para os provedores de e-mail.
- * Os Client IDs são públicos por natureza em aplicações SPA no navegador.
- * Para publicar no GitHub Pages (ex: https://devopsmarcu.github.io/), o
- * mantenedor preenche os Client IDs abaixo registrados nas respectivas consoles.
- * Também é permitido sobrescrever localmente via localStorage para testes em outros domínios.
+ * Redirect URI derivada da página atual (origem + caminho).
+ * Funciona tanto em subdiretórios do GitHub Pages (ex.:
+ * https://usuario.github.io/rateio/) quanto em domínio próprio.
+ * O mesmo valor precisa estar cadastrado nos consoles do Google e da Microsoft.
  */
-
-// Client IDs padrão da aplicação (preenchíveis pelo mantenedor)
-const DEFAULT_GOOGLE_CLIENT_ID = 'SEU_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
-const DEFAULT_MICROSOFT_CLIENT_ID = 'SEU_MICROSOFT_CLIENT_ID';
-
-// Obter Redirect URI dinamicamente respeitando subdiretórios no GitHub Pages ou domínio próprio
 export function getRedirectUri() {
-  // Exemplo: https://devopsmarcu.github.io/rateio/ ou http://localhost:8080/
   const url = new URL(window.location.href);
-  // Remove hash e search params para ter uma redirect URI canônica
   return `${url.origin}${url.pathname}`;
 }
 
+// --------------------------------------------------------------------------
+// Configuração dos provedores
+// --------------------------------------------------------------------------
+
+const isPlaceholder = v => !v || /^SEU_/i.test(String(v));
+
 export const OAUTH_CONFIG = {
-  // Google OAuth 2.0 / Gmail
+  // Google Identity Services (GIS) + Gmail API
   google: {
-    // Permite override pelo usuário/desenvolvedor em Ajustes se auto-hospedado
-    getClientId: () => localStorage.getItem('oauth_override_google_cid') || localStorage.getItem('cid') || DEFAULT_GOOGLE_CLIENT_ID,
-    isConfigured: () => {
-      const cid = localStorage.getItem('oauth_override_google_cid') || localStorage.getItem('cid') || DEFAULT_GOOGLE_CLIENT_ID;
-      return cid && !cid.startsWith('SEU_');
+    clientId: GOOGLE_CLIENT_ID,
+    isConfigured() {
+      return !isPlaceholder(this.clientId);
     },
-    authEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-    tokenRevokeEndpoint: 'https://oauth2.googleapis.com/revoke',
+    // Biblioteca oficial do Google (deve ser carregada de accounts.google.com).
+    gisScriptUrl: 'https://accounts.google.com/gsi/client',
     apiBase: 'https://gmail.googleapis.com/gmail/v1/users/me',
     profileEndpoint: 'https://gmail.googleapis.com/gmail/v1/users/me/profile',
+    tokenRevokeEndpoint: 'https://oauth2.googleapis.com/revoke',
     /**
-     * Escopos mínimos necessários:
-     * - gmail.readonly: necessário para buscar mensagens por query, ler o corpo (texto/html)
-     *   e baixar anexos (PDFs de faturas). A API de perfil (users.getProfile) também é coberta
-     *   por este escopo para exibir o email conectado sem pedir escopos de perfil adicionais!
+     * Escopo mínimo necessário: gmail.readonly permite pesquisar mensagens,
+     * ler o corpo (texto/html) e baixar anexos (PDFs de faturas) e também
+     * cobre users.getProfile (usado apenas para exibir o e-mail conectado).
+     * Nenhuma permissão de envio, exclusão ou modificação é solicitada.
+     * É um escopo restrito e exige verificação do Google para uso público.
      */
-    scopes: [
-      'https://www.googleapis.com/auth/gmail.readonly'
-    ],
+    scopes: ['https://www.googleapis.com/auth/gmail.readonly'],
     defaultQuery: 'fatura OR boleto newer_than:90d'
   },
 
-  // Microsoft Identity Platform / Microsoft Graph (Outlook)
+  // Microsoft Identity Platform (MSAL Browser) + Microsoft Graph
   microsoft: {
-    getClientId: () => localStorage.getItem('oauth_override_ms_cid') || localStorage.getItem('mcid') || DEFAULT_MICROSOFT_CLIENT_ID,
-    isConfigured: () => {
-      const cid = localStorage.getItem('oauth_override_ms_cid') || localStorage.getItem('mcid') || DEFAULT_MICROSOFT_CLIENT_ID;
-      return cid && !cid.startsWith('SEU_');
+    clientId: MICROSOFT_CLIENT_ID,
+    isConfigured() {
+      return !isPlaceholder(this.clientId);
     },
-    // /common suporta tanto contas pessoais (Outlook.com, Hotmail, Live) quanto corporativas/educacionais (M365)
-    authEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-    tokenEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+    // Biblioteca oficial (MSAL Browser). Servida com CORP: cross-origin, o que
+    // a mantém compatível com o COEP exigido pelo OPFS.
+    msalScriptUrl: 'https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.27.0/lib/msal-browser.min.js',
+    // /common atende contas pessoais (Outlook.com, Hotmail, Live) e
+    // corporativas/educacionais (Microsoft 365), conforme o registro da aplicação.
+    authority: 'https://login.microsoftonline.com/common',
     graphBase: 'https://graph.microsoft.com/v1.0',
     meEndpoint: 'https://graph.microsoft.com/v1.0/me',
     messagesEndpoint: 'https://graph.microsoft.com/v1.0/me/messages',
     /**
-     * Escopos delegados mínimos necessários:
-     * - User.Read: para obter o email/nome da conta conectada
-     * - Mail.Read: para pesquisar mensagens na caixa de entrada e obter faturas/anexos
+     * Permissões delegadas mínimas:
+     * - User.Read: exibir o e-mail/nome da conta conectada.
+     * - Mail.Read: pesquisar e ler mensagens e anexos.
+     * Nenhuma permissão de envio, exclusão ou modificação é solicitada.
      */
-    scopes: [
-      'User.Read',
-      'Mail.Read'
-    ],
+    scopes: ['User.Read', 'Mail.Read'],
     defaultQuery: 'fatura'
   }
 };

@@ -4,7 +4,7 @@
 // ==========================================================================
 
 import { oauthService } from './oauth-service.js';
-import { OAUTH_CONFIG, getRedirectUri } from './oauth-config.js';
+import { ADMIN_NOT_CONFIGURED_MSG } from './oauth-config.js';
 
 const $ = s => document.querySelector(s);
 
@@ -217,50 +217,29 @@ const steps = n => `
   </div>`;
 
 // ==========================================================================
-// Processamento de Retornos OAuth 2.0 (Gmail e Outlook) & Service Worker
+// Retorno dos fluxos de autorização (Gmail e Outlook)
 // ==========================================================================
+// O Google é autorizado na página-ponte (oauth.html) e o resultado é recebido
+// pelo serviço via BroadcastChannel — nada chega pela URL deste aplicativo.
+// A Microsoft usa o redirecionamento do MSAL, cujo retorno é tratado abaixo.
+const emsg = e => (e && e.userMessage) || 'Não foi possível concluir a operação. Tente novamente.';
+
 (async () => {
-  const hash = new URLSearchParams(location.hash.slice(1));
-  const search = new URLSearchParams(location.search);
-
-  // Tratamento de erros reportados pelo provedor OAuth
-  const errDesc = hash.get('error_description') || hash.get('error') || search.get('error_description') || search.get('error');
-  if (errDesc) {
-    S.bootErr = 'Autorização cancelada ou recusada: ' + errDesc;
-    history.replaceState(null, '', location.pathname);
-    return;
-  }
-
-  // Retorno do Google: access_token no fragmento de hash
-  const gToken = hash.get('access_token');
-  const gState = hash.get('state');
-  if (gToken && gState && gState.startsWith('g')) {
-    try {
-      await oauthService.completeGoogleAuth(gToken, hash.get('expires_in'), gState);
-      history.replaceState(null, '', location.pathname);
-      S.tab = 'faturas';
-      S.imp = { step: 1, origin: 'gmail' };
-      S.bootErr = null;
-      setTimeout(() => toast('Gmail conectado com sucesso!'), 400);
-    } catch (e) {
-      S.bootErr = 'Falha ao autenticar Gmail: ' + e.message;
-    }
-  }
-
-  // Retorno da Microsoft: authorization code no fragmento ou na query string
-  const msCode = hash.get('code') || search.get('code');
-  const msState = hash.get('state') || search.get('state');
-  if (msCode && msState && msState.startsWith('ms')) {
-    try {
-      await oauthService.completeMicrosoftAuth(msCode, msState);
-      history.replaceState(null, '', location.pathname);
+  try {
+    const ms = await oauthService.initMicrosoft();
+    if (ms?.redirect) {
       S.tab = 'faturas';
       S.imp = { step: 1, origin: 'outlook' };
-      S.bootErr = null;
       setTimeout(() => toast('Outlook conectado com sucesso!'), 400);
-    } catch (e) {
-      S.bootErr = 'Falha ao autenticar Outlook: ' + e.message;
     }
+  } catch (e) {
+    S.bootErr = emsg(e);
+  }
+
+  // Descarta resíduos de autorização (code/state/error) deixados na URL.
+  const p = new URLSearchParams(location.search);
+  if (p.has('code') || p.has('state') || p.has('error')) {
+    history.replaceState(null, '', location.pathname);
   }
 })();
 
@@ -686,19 +665,17 @@ async function detalhe(id) {
 // ==========================================================================
 // Telas de Importação de Fatura (Etapas 1 a 5)
 // ==========================================================================
-// Helpers legados (compatibilidade com gout e credenciais anteriores)
-const gtok = () => oauthService.getToken('google') || '';
-const mtok = () => oauthService.getToken('microsoft') || '';
-
+// Lista de mensagens normalizada pelo oauth-service (formato único p/ Gmail e Outlook).
 const gl = () => S.msgs.map((m, i) => {
-  const attCount = (m.attachments || m.A || []).length;
+  const jaImportada = oauthService.isImported(m.key);
   return `
   <div class="cell pressable msg-row" data-a="gpick" data-i="${i}" role="button" tabindex="0">
     <div class="grow">
-      <div class="bold ellipsis">${esc(m.subject || m.subj || '(sem assunto)')}</div>
+      <div class="bold ellipsis">${esc(m.subject)}</div>
       <div class="sm mut ellipsis">${esc(m.from)}</div>
     </div>
-    ${attCount ? `<span class="pill accent" style="margin-right:4px">${attCount} anexo${attCount > 1 ? 's' : ''}</span>` : ''}
+    ${jaImportada ? '<span class="pill" style="margin-right:4px">Importada</span>' : ''}
+    ${m.hasAttachments ? '<span class="pill accent" style="margin-right:4px">anexo</span>' : ''}
     <span class="chev">${ICO.chev}</span>
   </div>
 `}).join('');
@@ -817,14 +794,21 @@ function importarView() {
     const isConnected = status.status === 'conectado' || status.status === 'expirado';
     if (!isConnected) {
       const configured = imp.origin === 'gmail' ? oauthService.isGoogleConfigured() : oauthService.isMicrosoftConfigured();
+      if (!configured) {
+        return head + steps(1) + `
+          <div class="empty">
+            <div class="ico" style="color:var(--mut)">${ICO.mail}</div>
+            <h2>Indisponível no momento</h2>
+            <p>${esc(ADMIN_NOT_CONFIGURED_MSG)}</p>
+          </div>`;
+      }
       return head + steps(1) + `
         <div class="empty">
           <div class="ico">${ICO.mail}</div>
           <h2>Conectar ${nome}</h2>
-          <p>${!navigator.onLine ? 'Esta origem requer conexão com a internet.' : !configured ? 'Configure o Client ID em Ajustes para autorizar a leitura segura de e-mails.' : 'Toque em Conectar para autorizar o acesso à sua caixa de entrada.'}</p>
+          <p>${!navigator.onLine ? 'Esta origem requer conexão com a internet.' : 'Toque em Conectar para autorizar a leitura segura das suas mensagens.'}</p>
           <div class="actions" style="margin:0">
             <button type="button" class="btn primary" data-a="${imp.origin === 'gmail' ? 'gauth' : 'mauth'}">Conectar ${nome}</button>
-            ${!configured ? `<button type="button" class="btn ghost" data-a="tab" data-t="ajustes">Configurar em Ajustes</button>` : ''}
           </div>
         </div>`;
     }
@@ -1235,9 +1219,9 @@ async function ajustes() {
   const gConnected = gStatus.status === 'conectado' || gStatus.status === 'expirado';
   const mConnected = mStatus.status === 'conectado' || mStatus.status === 'expirado';
   const g = gStatus.status === 'conectado' ? (gStatus.email || 'Conectado') :
-            gStatus.status === 'expirado' ? 'Expirado — reconectar' : 'Configurar';
+            gStatus.status === 'expirado' ? 'Expirado — reconectar' : 'Não conectado';
   const m = mStatus.status === 'conectado' ? (mStatus.email || 'Conectado') :
-            mStatus.status === 'expirado' ? 'Expirado — reconectar' : 'Configurar';
+            mStatus.status === 'expirado' ? 'Expirado — reconectar' : 'Não conectado';
   const userName = localStorage.userName || 'Usuario';
 
   return `
@@ -1295,10 +1279,6 @@ async function ajustes() {
           ${mStatus.email ? `<br><span class="sm mut">${esc(mStatus.email)}</span>` : ''}
         </span>
         <span class="pill ${mConnected ? (mStatus.status === 'expirado' ? 'warn' : 'ok') : ''}">${esc(m)}</span>
-        <span class="chev">${ICO.chev}</span>
-      </button>
-      <button type="button" class="cell pressable" data-a="credenciais">
-        <span class="grow bold">Gerenciar credenciais OAuth</span>
         <span class="chev">${ICO.chev}</span>
       </button>
       ${gConnected ? `
@@ -1404,7 +1384,6 @@ const html2txt = h => h
   .replace(/&amp;/g, '&')
   .replace(/[ \t]+/g, ' ');
 
-const bytes = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
 const utf = u => new TextDecoder().decode(u);
 
 function askPwd(why) {
@@ -1605,54 +1584,6 @@ async function show(t) {
   };
   await go();
 }
-
-// Integrações de E-mail
-const gf = async u => {
-  const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/' + u, {
-    headers: { Authorization: 'Bearer ' + gtok() }
-  });
-  if (!r.ok) throw Error('Gmail ' + r.status + (r.status === 401 ? ' — reconecte em Ajustes.' : !navigator.onLine ? ' — sem conexão.' : ''));
-  return r.json();
-};
-
-const mbody = p => {
-  let h = '', t = '';
-  (function w(x) {
-    if (x.mimeType === 'text/html' && x.body?.data) h = utf(bytes(x.body.data));
-    else if (x.mimeType === 'text/plain' && x.body?.data) t = utf(bytes(x.body.data));
-    x.parts?.forEach(w);
-  })(p);
-  return h || t;
-};
-
-const gatts = (id, p) => async () => {
-  const o = [];
-  (function w(x) {
-    if (x.filename && (x.body?.attachmentId || x.body?.data)) {
-      o.push({
-        name: x.filename,
-        get: async () => x.body.data ? bytes(x.body.data) : bytes((await gf(`messages/${id}/attachments/${x.body.attachmentId}`)).data)
-      });
-    }
-    x.parts?.forEach(w);
-  })(p);
-  return o;
-};
-
-const mf = async u => {
-  const r = await fetch('https://graph.microsoft.com/v1.0/me/' + u, {
-    headers: { Authorization: 'Bearer ' + mtok() }
-  });
-  if (!r.ok) throw Error('Outlook ' + r.status + (!navigator.onLine ? ' — sem conexão.' : r.status === 401 ? ' — reconecte em Ajustes.' : ''));
-  return r.json();
-};
-
-const matts = id => async () => (await mf(`messages/${id}/attachments?$select=id,name`)).value.map(a => ({
-  name: a.name,
-  get: async () => bytes((await mf(`messages/${id}/attachments/${a.id}`)).contentBytes)
-}));
-
-const b64u = b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
 // Geração do Texto de Cobrança Formatado (Screen 11 Mockup)
 function cobrancaTexto(a, mes) {
@@ -2150,46 +2081,6 @@ const A = {
     await navigator.clipboard.writeText(p.chave_pix);
     toast('Chave Pix copiada com sucesso');
   },
-  credenciais: () => {
-    const redirectUri = getRedirectUri();
-    openSheet(`
-      <h2>Credenciais OAuth</h2>
-      <p class="footnote" style="margin-top:0">Configure Client IDs para leitura segura de faturas. Os dados processados ficam exclusivamente neste aparelho.</p>
-      <div class="group">
-        <label class="cell">
-          <span class="grow">
-            <span class="field-label">Google Client ID</span>
-            <input id="cid" class="field" placeholder="ID de cliente OAuth Google" value="${esc(localStorage.cid || '')}">
-          </span>
-        </label>
-        <label class="cell">
-          <span class="grow">
-            <span class="field-label">Microsoft Client ID</span>
-            <input id="mcid" class="field" placeholder="Application (client) ID" value="${esc(localStorage.mcid || '')}">
-          </span>
-        </label>
-      </div>
-      <p class="footnote">Redirect URI (cadastrar nos consoles):</p>
-      <div class="group"><div class="cell"><span class="sm mut" style="word-break:break-all;user-select:all">${esc(redirectUri)}</span></div></div>
-      <div class="actions">
-        <button type="button" class="btn primary" data-a="scid">Salvar credenciais</button>
-      </div>`);
-  },
-  scid: () => {
-    localStorage.cid = $('#cid')?.value.trim() || '';
-    localStorage.mcid = $('#mcid')?.value.trim() || '';
-    closeSheet();
-    toast('Credenciais salvas');
-    go();
-  },
-  gout: async () => {
-    await oauthService.disconnectGoogle();
-    await oauthService.disconnectMicrosoft();
-    // Limpar também chaves legadas
-    ['gtk', 'gexp', 'mtk', 'mexp', 'mver'].forEach(k => delete localStorage[k]);
-    toast('Contas desconectadas');
-    go();
-  },
   disconn: async d => {
     const prov = d.prov;
     try {
@@ -2197,85 +2088,84 @@ const A = {
       else if (prov === 'microsoft') await oauthService.disconnectMicrosoft();
       toast(prov === 'google' ? 'Gmail desconectado' : 'Outlook desconectado');
     } catch (e) {
-      toast('Erro ao desconectar: ' + e.message);
+      toast(emsg(e));
     }
     go();
   },
   gauth: async () => {
     try {
       await oauthService.startGoogleAuth();
+      toast('Gmail conectado com sucesso!');
     } catch (e) {
-      toast(e.message);
+      toast(emsg(e));
     }
+    go();
   },
   mauth: async () => {
     try {
       await oauthService.startMicrosoftAuth();
     } catch (e) {
-      toast(e.message);
+      toast(emsg(e));
+      go();
     }
   },
   gbusca: async () => {
-    if (!navigator.onLine) return toast('Gmail requer conexão com a internet');
+    if (!navigator.onLine) return toast('Você está offline. Conecte-se para acessar suas mensagens.');
     const t = $('#gq')?.value.trim() || 'fatura';
     const q = /newer_than/.test(t) ? t : t + ' newer_than:90d';
     if (S.imp) { S.imp.q = t; S.imp.qeff = q; }
     try {
       const result = await oauthService.searchGmail(q, 12);
       S.msgs = result.messages;
-      if (S.imp) S.imp.nextPage = result.nextPageToken || null;
+      if (S.imp) S.imp.nextPage = result.nextPage || null;
       const el = $('#gl');
       if (el) el.innerHTML = gl() || '<div class="cell mut">Nenhuma mensagem encontrada.</div>';
-      // Atualizar botão de paginação sem re-renderizar tudo
-      const existingMore = document.querySelector('[data-a="loadmore"]')?.parentElement;
-      if (!existingMore && result.nextPageToken) {
-        const ga = $('#ga');
-        if (ga) ga.innerHTML = `<div class="actions"><button type="button" class="btn secondary" data-a="loadmore">Carregar mais</button></div>`;
-      } else if (!result.nextPageToken && existingMore) {
-        existingMore.remove();
-      }
+      const ga = $('#ga');
+      if (ga) ga.innerHTML = result.nextPage
+        ? '<div class="actions"><button type="button" class="btn secondary" data-a="loadmore">Carregar mais</button></div>'
+        : '';
     } catch (e) {
-      toast(e.message);
+      toast(emsg(e));
+      go();
     }
   },
   mbusca: async () => {
-    if (!navigator.onLine) return toast('Outlook requer conexão com a internet');
+    if (!navigator.onLine) return toast('Você está offline. Conecte-se para acessar suas mensagens.');
     const t = $('#gq')?.value.trim() || 'fatura';
     if (S.imp) S.imp.q = t;
     try {
       const result = await oauthService.searchOutlook(t, 12);
       S.msgs = result.messages;
-      if (S.imp) S.imp.nextPage = result.nextLink || null;
+      if (S.imp) S.imp.nextPage = result.nextPage || null;
       const el = $('#gl');
       if (el) el.innerHTML = gl() || '<div class="cell mut">Nenhuma mensagem encontrada.</div>';
       const ga = $('#ga');
-      if (ga) ga.innerHTML = result.nextLink
-        ? `<div class="actions"><button type="button" class="btn secondary" data-a="loadmore">Carregar mais</button></div>`
+      if (ga) ga.innerHTML = result.nextPage
+        ? '<div class="actions"><button type="button" class="btn secondary" data-a="loadmore">Carregar mais</button></div>'
         : '';
     } catch (e) {
-      toast(e.message);
+      toast(emsg(e));
+      go();
     }
   },
   loadmore: async () => {
     const imp = S.imp;
     if (!imp?.nextPage) return;
+    const page = imp.nextPage;
     try {
-      let result;
-      if (imp.origin === 'gmail') {
-        result = await oauthService.searchGmail(imp.qeff || imp.q || 'fatura', 12, imp.nextPage);
-      } else {
-        result = await oauthService.searchOutlook(imp.q || 'fatura', 12, imp.nextPage);
-      }
+      const result = imp.origin === 'gmail'
+        ? await oauthService.searchGmail(imp.qeff || imp.q || 'fatura', 12, page)
+        : await oauthService.searchOutlook(imp.q || 'fatura', 12, page);
       S.msgs = [...S.msgs, ...result.messages];
-      imp.nextPage = result.nextPageToken || result.nextLink || null;
+      imp.nextPage = result.nextPage || null;
       const el = $('#gl');
       if (el) el.innerHTML = gl();
       const ga = $('#ga');
       if (ga) ga.innerHTML = imp.nextPage
-        ? `<div class="actions"><button type="button" class="btn secondary" data-a="loadmore">Carregar mais</button></div>`
+        ? '<div class="actions"><button type="button" class="btn secondary" data-a="loadmore">Carregar mais</button></div>'
         : '';
     } catch (e) {
-      toast(e.message);
+      toast(emsg(e));
     }
   },
   setchip: d => {
@@ -2286,21 +2176,18 @@ const A = {
   },
   gpick: async d => {
     const m = S.msgs[d.i];
-    // Suporta tanto o novo formato de oauthService (m.attachments) quanto o legado (m.atts)
+    let atts = [];
     try {
-      if (!m.attachments && m.atts) {
-        m.attachments = ((await m.atts?.()) || []).filter(a => /\.(pdf|html?|txt)$/i.test(a.name));
-      }
-      m.A = m.attachments || [];
+      atts = await m.listAttachments();
     } catch {
-      m.A = [];
+      atts = [];
     }
-    const subj = m.subject || m.subj || '(sem assunto)';
+    m._atts = atts;
     openSheet(`
-      <h2>Opções da Mensagem</h2>
-      <p class="footnote">${esc(subj)}</p>
+      <h2>Opções da mensagem</h2>
+      <p class="footnote">${esc(m.subject)}</p>
       <div class="action-list">
-        ${m.A.map((a, j) => `<button type="button" data-a="att" data-i="${d.i}" data-j="${j}">Anexo: ${esc(a.name)}</button>`).join('')}
+        ${atts.map((a, j) => `<button type="button" data-a="att" data-i="${d.i}" data-j="${j}">Anexo: ${esc(a.name)}</button>`).join('')}
         <button type="button" data-a="frombody" data-i="${d.i}">Usar texto do e-mail</button>
         <button type="button" data-a="closesheet">Cancelar</button>
       </div>`);
@@ -2308,25 +2195,35 @@ const A = {
   frombody: async d => {
     closeSheet();
     const m = S.msgs[d.i];
-    const body = m.body || m.snippet || '';
-    S.imp = { ...S.imp, step: 2, status: 'Lendo e-mail…', origin: S.imp?.origin || 'gmail' };
+    if (oauthService.isImported(m.key)) {
+      const ok = await confirmUI('Mensagem já importada', 'Esta mensagem já foi importada antes. Deseja importar novamente?', 'Importar', 0);
+      if (!ok) return;
+    }
+    S.imp = { ...S.imp, step: 2, msgKey: m.key, status: 'Lendo e-mail…' };
     await go();
     try {
-      await show(body);
+      await show(m.body || m.snippet || '');
     } catch (e) {
-      S.imp = { step: 2, error: e.message };
+      S.imp = { step: 2, error: 'Não foi possível interpretar o e-mail. Tente novamente.' };
       go();
     }
   },
   att: async d => {
     closeSheet();
-    S.imp = { ...S.imp, step: 2, status: 'Lendo anexo…' };
+    const m = S.msgs[d.i];
+    const a = (m._atts || [])[d.j];
+    if (!a) return toast('Anexo indisponível. Tente novamente.');
+    if (oauthService.isImported(m.key)) {
+      const ok = await confirmUI('Mensagem já importada', 'Esta mensagem já foi importada antes. Deseja importar novamente?', 'Importar', 0);
+      if (!ok) return;
+    }
+    S.imp = { ...S.imp, step: 2, msgKey: m.key, status: 'Lendo anexo…' };
     await go();
     try {
-      const a = S.msgs[d.i].A[d.j], b = await a.get();
+      const b = await a.download();
       await show(/\.pdf$/i.test(a.name) ? await pdfText(b) : utf(b));
     } catch (e) {
-      S.imp = { step: 2, error: 'Falha no anexo: ' + e.message };
+      S.imp = { step: 2, error: 'Não foi possível ler o anexo. Tente novamente.' };
       go();
     }
   },
@@ -2434,6 +2331,8 @@ const A = {
       if (st.length) await tx(st);
     }
 
+    // Registra a mensagem como importada (prevenção de duplicidade).
+    if (S.imp?.msgKey) oauthService.markImported(S.imp.msgKey);
     S.imp = null;
     S.fat = fid;
     S.tab = 'faturas';

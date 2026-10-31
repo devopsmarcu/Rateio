@@ -1,6 +1,6 @@
 /**
  * test_oauth.mjs — Suite de testes para oauth-service.js
- * Execução: node test_oauth.mjs  (copiar para c:\temp\rateio\)
+ * Execução: node test_oauth.mjs
  */
 import { webcrypto } from 'node:crypto';
 // Node v22+ expõe globalThis.crypto nativamente; só sobrescrevemos se não existir
@@ -76,10 +76,12 @@ function makeFetchResp(body, status = 200, headers = {}) {
   };
 }
 
-const { OAUTH_CONFIG, getRedirectUri } = await import('./oauth-config.js');
-const { OAuthService }                 = await import('./oauth-service.js');
+const { OAUTH_CONFIG, getRedirectUri, ADMIN_NOT_CONFIGURED_MSG } = await import('./oauth-config.js');
+const { OAuthService, OAuthError, redact }                     = await import('./oauth-service.js');
 
-// --- Grupo 1: Utilitarios ---
+// ---------------------------------------------------------------------------
+// Grupo 1: Utilitarios e Configuracao
+// ---------------------------------------------------------------------------
 console.log('\n\ud83d\udce6 Grupo 1: Utilitarios e Configuracao');
 
 await test('getRedirectUri retorna string http', () => {
@@ -87,17 +89,32 @@ await test('getRedirectUri retorna string http', () => {
   assert(typeof uri === 'string' && uri.startsWith('http'), `URI invalida: ${uri}`);
 });
 
-await test('OAUTH_CONFIG.google tem endpoints corretos', () => {
-  assert(OAUTH_CONFIG.google.authEndpoint.includes('accounts.google.com'));
-  assert(OAUTH_CONFIG.google.scopes.some(s => s.includes('gmail.readonly')));
+await test('OAUTH_CONFIG.google aponta para GIS e Gmail API', () => {
+  assert(OAUTH_CONFIG.google.gisScriptUrl.includes('accounts.google.com'), 'Deve usar o script oficial do GIS');
+  assert(OAUTH_CONFIG.google.apiBase.includes('gmail.googleapis.com'));
+  assert(OAUTH_CONFIG.google.scopes.every(s => s.includes('gmail.readonly')), 'Somente leitura do Gmail');
 });
 
-await test('OAUTH_CONFIG.microsoft tem escopos corretos', () => {
+await test('OAUTH_CONFIG.microsoft aponta para MSAL e Graph', () => {
+  assert(OAUTH_CONFIG.microsoft.msalScriptUrl.includes('msal-browser'), 'Deve usar o MSAL Browser');
+  assert(OAUTH_CONFIG.microsoft.graphBase.includes('graph.microsoft.com'));
   assert(OAUTH_CONFIG.microsoft.scopes.includes('Mail.Read'));
   assert(OAUTH_CONFIG.microsoft.scopes.includes('User.Read'));
 });
 
-// --- Grupo 2: Estado e Token ---
+await test('escopos nao solicitam envio/exclusao de mensagens', () => {
+  const all = [...OAUTH_CONFIG.google.scopes, ...OAUTH_CONFIG.microsoft.scopes].join(' ');
+  assert(!/send|compose|modify|mail\.send|readwrite/i.test(all), `Escopos amplos detectados: ${all}`);
+});
+
+await test('mensagem administrativa nao expoe termos tecnicos', () => {
+  assert(!/client\s*id|oauth|pkce|redirect|escopo|scope/i.test(ADMIN_NOT_CONFIGURED_MSG),
+    `Mensagem nao deve conter jargao tecnico: ${ADMIN_NOT_CONFIGURED_MSG}`);
+});
+
+// ---------------------------------------------------------------------------
+// Grupo 2: Estado e Token
+// ---------------------------------------------------------------------------
 console.log('\n\ud83d\udce6 Grupo 2: Estado e Token');
 
 await test('getStatus nao_conectado sem token', () => {
@@ -112,7 +129,9 @@ await test('getStatus expirado com token antigo', () => {
   sessionStorage.setItem('oauth_google_token', 'old_tok');
   sessionStorage.setItem('oauth_google_exp', String(Date.now() - 1000));
   sessionStorage.setItem('oauth_google_email', 'x@gmail.com');
-  assertEqual(svc.getStatus('google').status, 'expirado');
+  const s = svc.getStatus('google');
+  assertEqual(s.status, 'expirado');
+  assertEqual(s.email, 'x@gmail.com');
 });
 
 await test('getStatus conectado com token valido', () => {
@@ -126,60 +145,81 @@ await test('getStatus conectado com token valido', () => {
   assertEqual(s.email, 'user@gmail.com');
 });
 
-// --- Grupo 3: Google Auth ---
+await test('getStatus microsoft conectado com conta salva', () => {
+  resetStorage();
+  const svc = new OAuthService();
+  sessionStorage.setItem('oauth_microsoft_email', 'user@outlook.com');
+  const s = svc.getStatus('microsoft');
+  assertEqual(s.status, 'conectado');
+  assertEqual(s.email, 'user@outlook.com');
+});
+
+await test('getToken(microsoft) sempre null (renovacao via MSAL)', () => {
+  resetStorage();
+  sessionStorage.setItem('oauth_microsoft_token', 'ms_tok');
+  const svc = new OAuthService();
+  assertEqual(svc.getToken('microsoft'), null);
+});
+
+// ---------------------------------------------------------------------------
+// Grupo 3: Google — armazenamento de token
+// ---------------------------------------------------------------------------
 console.log('\n\ud83d\udce6 Grupo 3: Google Auth');
 
-await test('completeGoogleAuth salva token e email', async () => {
+await test('_storeGoogleToken salva token e busca o e-mail', async () => {
   resetStorage();
-  sessionStorage.setItem('oauth_google_state', 'g_abc');
   mockFetchOnce(makeFetchResp({ emailAddress: 'user@gmail.com' }));
   const svc = new OAuthService();
-  await svc.completeGoogleAuth('g_tok', '3600', 'g_abc');
-  const token = sessionStorage.getItem('oauth_google_token') || localStorage.getItem('oauth_google_token');
-  assertEqual(token, 'g_tok');
-  const email = sessionStorage.getItem('oauth_google_email') || localStorage.getItem('oauth_google_email');
-  assertEqual(email, 'user@gmail.com');
+  await svc._storeGoogleToken('g_tok', '3600');
+  assertEqual(sessionStorage.getItem('oauth_google_token'), 'g_tok');
+  assertEqual(sessionStorage.getItem('oauth_google_email'), 'user@gmail.com');
+  assertEqual(svc.getStatus('google').status, 'conectado');
 });
 
-// --- Grupo 4: Microsoft Auth ---
-console.log('\n\ud83d\udce6 Grupo 4: Microsoft Auth (PKCE)');
-
-await test('completeMicrosoftAuth salva token MS e email', async () => {
+await test('_storeGoogleToken sem token lanca OAuthError', async () => {
   resetStorage();
-  localStorage.setItem('mcid', 'test-ms-cid');
-  sessionStorage.setItem('oauth_ms_verifier', 'fake_verifier_1234567890');
-  sessionStorage.setItem('oauth_ms_state', 'ms_xyz');
-  mockFetchSequence([
-    makeFetchResp({ access_token: 'ms_tok', expires_in: 3600 }),
-    makeFetchResp({ mail: 'user@outlook.com' })
-  ]);
   const svc = new OAuthService();
-  await svc.completeMicrosoftAuth('auth_code', 'ms_xyz');
-  const token = sessionStorage.getItem('oauth_microsoft_token') || localStorage.getItem('oauth_microsoft_token');
-  assertEqual(token, 'ms_tok');
-  const email = sessionStorage.getItem('oauth_microsoft_email') || localStorage.getItem('oauth_microsoft_email');
-  assertEqual(email, 'user@outlook.com');
+  let err = null;
+  try { await svc._storeGoogleToken('', '3600'); } catch (e) { err = e; }
+  assert(err instanceof OAuthError, 'Deve ser OAuthError');
+  assert(!/undefined|empty_token/i.test(err.message), 'Mensagem deve ser amigavel');
 });
 
-// --- Grupo 5: Busca Gmail ---
-console.log('\n\ud83d\udce6 Grupo 5: Busca Gmail');
-
-await test('searchGmail lanca erro sem token', async () => {
+await test('_storeGoogleToken nao falha se o perfil estiver indisponivel', async () => {
   resetStorage();
+  mockFetchOnce(makeFetchResp({}, 500));
   const svc = new OAuthService();
-  let threw = false;
-  try { await svc.searchGmail('fatura'); } catch { threw = true; }
-  assert(threw, 'Deve lancar erro sem token');
+  await svc._storeGoogleToken('g_tok2', '3600');
+  assertEqual(sessionStorage.getItem('oauth_google_token'), 'g_tok2');
+  assertEqual(svc.getStatus('google').status, 'conectado');
 });
 
-await test('searchGmail retorna mensagens e nextPageToken', async () => {
-  resetStorage();
-  const svc = new OAuthService();
+// ---------------------------------------------------------------------------
+// Grupo 4: Busca Gmail
+// ---------------------------------------------------------------------------
+console.log('\n\ud83d\udce6 Grupo 4: Busca Gmail');
+
+function seedGoogle() {
   sessionStorage.setItem('oauth_google_token', 'g_tok');
   sessionStorage.setItem('oauth_google_exp', String(Date.now() + 3600_000));
+}
+
+await test('searchGmail lanca erro amigavel sem token', async () => {
+  resetStorage();
+  const svc = new OAuthService();
+  let err = null;
+  try { await svc.searchGmail('fatura'); } catch (e) { err = e; }
+  assert(err instanceof OAuthError, 'Deve ser OAuthError');
+  assert(/expirou/i.test(err.message), `Mensagem amigavel esperada, veio: ${err.message}`);
+});
+
+await test('searchGmail retorna mensagens, nextPage e estimate', async () => {
+  resetStorage();
+  const svc = new OAuthService();
+  seedGoogle();
   const encBody = btoa('Fatura R$ 500').replace(/\+/g, '-').replace(/\//g, '_');
   mockFetchSequence([
-    makeFetchResp({ messages: [{ id: 'm1' }], nextPageToken: 'pg2', resultSizeEstimate: 1 }),
+    makeFetchResp({ messages: [{ id: 'm1' }], nextPageToken: 'pg2', resultSizeEstimate: 7 }),
     makeFetchResp({
       id: 'm1', threadId: 't1', snippet: 'Fatura',
       payload: {
@@ -194,16 +234,18 @@ await test('searchGmail retorna mensagens e nextPageToken', async () => {
     })
   ]);
   const result = await svc.searchGmail('fatura', 12);
-  assert(Array.isArray(result.messages) && result.messages.length === 1, 'Deve retornar 1 mensagem');
-  assertEqual(result.nextPageToken, 'pg2', 'Deve ter nextPageToken');
+  assertEqual(result.messages.length, 1);
+  assertEqual(result.nextPage, 'pg2');
+  assertEqual(result.estimate, 7);
   assertEqual(result.messages[0].subject, 'Fatura Nubank');
+  assertEqual(result.messages[0].provider, 'google');
+  assertEqual(result.messages[0].key, 'google:m1');
 });
 
 await test('searchGmail inclui pageToken na URL na segunda pagina', async () => {
   resetStorage();
   const svc = new OAuthService();
-  sessionStorage.setItem('oauth_google_token', 'g_tok');
-  sessionStorage.setItem('oauth_google_exp', String(Date.now() + 3600_000));
+  seedGoogle();
   let capturedUrl = '';
   mockFetch(async (url) => {
     capturedUrl = url;
@@ -213,27 +255,41 @@ await test('searchGmail inclui pageToken na URL na segunda pagina', async () => 
   assert(capturedUrl.includes('pageToken=pagetoken_xyz'), `URL deve conter pageToken, foi: ${capturedUrl}`);
 });
 
-// --- Grupo 6: Busca Outlook ---
-console.log('\n\ud83d\udce6 Grupo 6: Busca Outlook');
-
-await test('searchOutlook lanca erro sem token', async () => {
+await test('searchGmail mensagem invalida nao derruba a busca', async () => {
   resetStorage();
   const svc = new OAuthService();
-  let threw = false;
-  try { await svc.searchOutlook('fatura'); } catch { threw = true; }
-  assert(threw);
+  seedGoogle();
+  mockFetchSequence([
+    makeFetchResp({ messages: [{ id: 'm1' }, { id: 'm2' }], resultSizeEstimate: 2 }),
+    makeFetchResp({}, 404),
+    makeFetchResp({ id: 'm2', snippet: 'ok', payload: { headers: [{ name: 'Subject', value: 'Boa' }] } })
+  ]);
+  const r = await svc.searchGmail('fatura');
+  assertEqual(r.messages.length, 1, 'Apenas a mensagem valida deve permanecer');
+  assertEqual(r.messages[0].subject, 'Boa');
 });
 
-await test('searchOutlook retorna mensagens com nextLink', async () => {
+// ---------------------------------------------------------------------------
+// Grupo 5: Busca Outlook
+// ---------------------------------------------------------------------------
+console.log('\n\ud83d\udce6 Grupo 5: Busca Outlook');
+
+function seedMsMock(svc, token = 'ms_tok') {
+  sessionStorage.setItem('oauth_microsoft_account', 'acc1');
+  sessionStorage.setItem('oauth_microsoft_email', 'user@outlook.com');
+  svc._getMsToken = async () => token;
+}
+
+await test('searchOutlook retorna mensagens normalizadas e nextPage', async () => {
   resetStorage();
   const svc = new OAuthService();
-  sessionStorage.setItem('oauth_microsoft_token', 'ms_tok');
-  sessionStorage.setItem('oauth_microsoft_exp', String(Date.now() + 3600_000));
+  seedMsMock(svc);
   mockFetchOnce(makeFetchResp({
     value: [{
       id: 'out1', subject: 'Fatura Nubank',
       from: { emailAddress: { address: 'noreply@nubank.com.br' } },
       body: { content: '<p>Fatura</p>', contentType: 'html' },
+      bodyPreview: 'Fatura',
       hasAttachments: false,
       receivedDateTime: '2024-01-01T00:00:00Z'
     }],
@@ -241,11 +297,93 @@ await test('searchOutlook retorna mensagens com nextLink', async () => {
   }));
   const result = await svc.searchOutlook('fatura', 12);
   assertEqual(result.messages.length, 1);
-  assert(result.nextLink?.includes('skip=12'));
+  assertEqual(result.messages[0].subject, 'Fatura Nubank');
+  assertEqual(result.messages[0].from, 'noreply@nubank.com.br');
+  assertEqual(result.messages[0].key, 'microsoft:out1');
+  assertEqual(result.messages[0].hasAttachments, false);
+  assert(result.nextPage?.includes('skip=12'), 'Deve expor o nextLink como nextPage');
 });
 
-// --- Grupo 7: HTTP 429 ---
-console.log('\n\ud83d\udce6 Grupo 7: HTTP 429 Backoff');
+await test('searchOutlook usa nextPage sem montar nova query', async () => {
+  resetStorage();
+  const svc = new OAuthService();
+  seedMsMock(svc);
+  let capturedUrl = '';
+  mockFetch(async (url) => {
+    capturedUrl = url;
+    return makeFetchResp({ value: [] });
+  });
+  await svc.searchOutlook('fatura', 12, 'https://graph.microsoft.com/v1.0/me/messages?$skip=24');
+  assertEqual(capturedUrl, 'https://graph.microsoft.com/v1.0/me/messages?$skip=24');
+});
+
+await test('searchOutlook sem conta lanca erro amigavel', async () => {
+  resetStorage();
+  const svc = new OAuthService();
+  let err = null;
+  try { await svc.searchOutlook('fatura'); } catch (e) { err = e; }
+  assert(err instanceof OAuthError, 'Deve ser OAuthError');
+  assert(!/msal|iframe|token/i.test(err.message), `Mensagem deve ser amigavel: ${err.message}`);
+});
+
+await test('searchOutlook com anexos expoe listAttachments sob demanda', async () => {
+  resetStorage();
+  const svc = new OAuthService();
+  seedMsMock(svc);
+  mockFetchSequence([
+    makeFetchResp({
+      value: [{
+        id: 'o2', subject: 'Com anexo',
+        from: { emailAddress: { address: 'a@b.com' } },
+        body: { content: '<p>x</p>' }, bodyPreview: 'x',
+        hasAttachments: true, receivedDateTime: '2024-01-01T00:00:00Z'
+      }]
+    }),
+    makeFetchResp({ value: [
+      { id: 'a1', name: 'fatura.pdf', size: 10, contentType: 'application/pdf' },
+      { id: 'a2', name: 'foto.png', size: 10, contentType: 'image/png' }
+    ] })
+  ]);
+  const r = await svc.searchOutlook('fatura');
+  const m = r.messages[0];
+  assertEqual(m.hasAttachments, true);
+  const atts = await m.listAttachments();
+  assertEqual(atts.length, 1, 'Somente anexos legiveis pelos parsers locais');
+  assertEqual(atts[0].name, 'fatura.pdf');
+  assert(typeof atts[0].download === 'function', 'Anexo deve expor download()');
+});
+
+// ---------------------------------------------------------------------------
+// Grupo 6: Camada de Normalizacao
+// ---------------------------------------------------------------------------
+console.log('\n\ud83d\udce6 Grupo 6: Normalizacao');
+
+await test('_normalize padroniza campos e filtra anexos', async () => {
+  const svc = new OAuthService();
+  const m = svc._normalize('google', {
+    id: 'x1', subject: 'Fatura', from: 'a@b', date: '2024-01-01', snippet: 's', body: '<p>',
+    attachments: [{ name: 'fatura.pdf' }, { name: 'imagem.png' }, { name: 'pagina.html' }]
+  });
+  assertEqual(m.provider, 'google');
+  assertEqual(m.key, 'google:x1');
+  assertEqual(m.subject, 'Fatura');
+  assertEqual(m.hasAttachments, true);
+  const atts = await m.listAttachments();
+  assertEqual(atts.length, 2, 'PDF e HTML sao suportados; PNG nao');
+});
+
+await test('_normalize aplica assunto padrao e sem anexos', async () => {
+  const svc = new OAuthService();
+  const m = svc._normalize('microsoft', { id: 'y1', attachments: null });
+  assertEqual(m.subject, '(sem assunto)');
+  assertEqual(m.hasAttachments, false);
+  assertEqual((await m.listAttachments()).length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// Grupo 7: HTTP 429 / erros / rede
+// ---------------------------------------------------------------------------
+console.log('\n\ud83d\udce6 Grupo 7: Backoff e erros HTTP');
 
 await test('_fetchWithRetry retenta apos 429 com Retry-After', async () => {
   const svc = new OAuthService();
@@ -278,10 +416,54 @@ await test('_fetchWithRetry com retries=0 nao retenta', async () => {
   assertEqual(callCount, 1);
 });
 
-// --- Grupo 8: Desconexao ---
+await test('searchGmail 401 limpa o token e pede reconexao', async () => {
+  resetStorage();
+  const svc = new OAuthService();
+  seedGoogle();
+  mockFetchOnce(makeFetchResp({}, 401));
+  let err = null;
+  try { await svc.searchGmail('fatura'); } catch (e) { err = e; }
+  assert(/expirou/i.test(err.message), `Esperava erro de expiracao, veio: ${err.message}`);
+  assertEqual(svc.getStatus('google').status, 'nao_conectado', 'Token invalido deve ser descartado');
+});
+
+await test('searchGmail 403 lanca erro de permissoes', async () => {
+  resetStorage();
+  const svc = new OAuthService();
+  seedGoogle();
+  mockFetchOnce(makeFetchResp({}, 403));
+  let err = null;
+  try { await svc.searchGmail('fatura'); } catch (e) { err = e; }
+  assert(/permiss/i.test(err.message), `Esperava erro de permissoes, veio: ${err.message}`);
+});
+
+await test('searchGmail 429 lanca erro de limite amigavel', async () => {
+  resetStorage();
+  const svc = new OAuthService();
+  seedGoogle();
+  mockFetch(async () => ({ ok: false, status: 429, headers: { get: () => '1' }, json: async () => ({}) }));
+  let err = null;
+  try { await svc.searchGmail('fatura'); } catch (e) { err = e; }
+  assert(/instantes/i.test(err.message), `Esperava mensagem de limite, veio: ${err.message}`);
+});
+
+await test('searchGmail propaga falha de rede como OAuthError', async () => {
+  resetStorage();
+  const svc = new OAuthService();
+  seedGoogle();
+  mockFetch(async () => { throw new Error('network down'); });
+  let err = null;
+  try { await svc.searchGmail('fatura'); } catch (e) { err = e; }
+  assert(err instanceof OAuthError, 'Deve ser OAuthError');
+  assert(!/network down/i.test(err.message), 'Nao deve vazar detalhe tecnico ao usuario');
+});
+
+// ---------------------------------------------------------------------------
+// Grupo 8: Desconexao
+// ---------------------------------------------------------------------------
 console.log('\n\ud83d\udce6 Grupo 8: Desconexao');
 
-await test('disconnectGoogle limpa todos os dados', async () => {
+await test('disconnectGoogle limpa todo o estado', async () => {
   resetStorage();
   sessionStorage.setItem('oauth_google_token', 'tok');
   sessionStorage.setItem('oauth_google_exp', String(Date.now() + 3600_000));
@@ -289,22 +471,24 @@ await test('disconnectGoogle limpa todos os dados', async () => {
   mockFetchOnce(makeFetchResp({}, 200));
   const svc = new OAuthService();
   await svc.disconnectGoogle();
-  assert(!sessionStorage.getItem('oauth_google_token'), 'Token deve ser removido');
+  assertEqual(sessionStorage.getItem('oauth_google_token'), null, 'Token deve ser removido');
   assertEqual(svc.getStatus('google').status, 'nao_conectado');
 });
 
-await test('disconnectMicrosoft limpa todos os dados', async () => {
+await test('disconnectMicrosoft limpa todo o estado', async () => {
   resetStorage();
-  sessionStorage.setItem('oauth_microsoft_token', 'ms_tok');
-  sessionStorage.setItem('oauth_microsoft_exp', String(Date.now() + 3600_000));
+  sessionStorage.setItem('oauth_microsoft_account', 'acc1');
+  sessionStorage.setItem('oauth_microsoft_email', 'a@outlook.com');
   const svc = new OAuthService();
   await svc.disconnectMicrosoft();
-  assert(!sessionStorage.getItem('oauth_microsoft_token'));
+  assertEqual(sessionStorage.getItem('oauth_microsoft_account'), null);
   assertEqual(svc.getStatus('microsoft').status, 'nao_conectado');
 });
 
-// --- Grupo 9: Utilitarios Internos ---
-console.log('\n\ud83d\udce6 Grupo 9: Utilitarios Internos');
+// ---------------------------------------------------------------------------
+// Grupo 9: Utilitarios internos
+// ---------------------------------------------------------------------------
+console.log('\n\ud83d\udce6 Grupo 9: Utilitarios internos');
 
 await test('_decodeBase64 decodifica base64url', () => {
   const svc = new OAuthService();
@@ -326,191 +510,106 @@ await test('_extractGmailBody prefere HTML sobre texto', () => {
   assertEqual(svc._extractGmailBody(payload), '<p>html</p>');
 });
 
-// --- Grupo 10: isConfigured ---
-console.log('\n\ud83d\udce6 Grupo 10: isConfigured');
+// ---------------------------------------------------------------------------
+// Grupo 10: Configuracao administrativa
+// ---------------------------------------------------------------------------
+console.log('\n\ud83d\udce6 Grupo 10: Configuracao administrativa');
 
-await test('isGoogleConfigured false com placeholder', () => {
-  resetStorage();
-  const svc = new OAuthService();
-  assert(svc.isGoogleConfigured() === false);
-});
-
-await test('isGoogleConfigured true com Client ID real', () => {
+await test('isConfigured retorna booleano e nao depende do localStorage', () => {
   resetStorage();
   localStorage.setItem('cid', '123456.apps.googleusercontent.com');
-  const svc = new OAuthService();
-  assert(svc.isGoogleConfigured() === true);
-});
-
-await test('isMicrosoftConfigured true com Client ID real', () => {
-  resetStorage();
   localStorage.setItem('mcid', 'aaaa-bbbb-cccc-dddd');
   const svc = new OAuthService();
-  assert(svc.isMicrosoftConfigured() === true);
+  assertEqual(typeof svc.isGoogleConfigured(), 'boolean');
+  assertEqual(typeof svc.isMicrosoftConfigured(), 'boolean');
+  assertEqual(svc.isGoogleConfigured(), OAUTH_CONFIG.google.isConfigured());
 });
 
-// --- Grupo 11: Erros HTTP (401/403) e falha de rede ---
-console.log('\n\ud83d\udce6 Grupo 11: Erros HTTP e falha de rede');
+// ---------------------------------------------------------------------------
+// Grupo 11: Client ID ausente
+// ---------------------------------------------------------------------------
+console.log('\n\ud83e\udded Grupo 11: Client ID ausente');
 
-function seedGoogle() {
-  sessionStorage.setItem('oauth_google_token', 'g_tok');
-  sessionStorage.setItem('oauth_google_exp', String(Date.now() + 3600_000));
-}
-function seedMicrosoft() {
-  sessionStorage.setItem('oauth_microsoft_token', 'ms_tok');
-  sessionStorage.setItem('oauth_microsoft_exp', String(Date.now() + 3600_000));
-}
-
-await test('searchGmail 401 lanca erro de sessao expirada', async () => {
+await test('startGoogleAuth lanca erro administrativo claro', async () => {
   resetStorage();
   const svc = new OAuthService();
-  seedGoogle();
-  mockFetchOnce(makeFetchResp({}, 401));
-  let msg = '';
-  try { await svc.searchGmail('fatura'); } catch (e) { msg = e.message; }
-  assert(/expirada/i.test(msg), `Esperava erro de sessao expirada, veio: ${msg}`);
+  if (svc.isGoogleConfigured()) return; // so testa o cenario de placeholder
+  const err = await svc.startGoogleAuth().then(() => null, e => e);
+  assert(err instanceof OAuthError, 'Deve ser OAuthError');
+  assertEqual(err.message, ADMIN_NOT_CONFIGURED_MSG);
 });
 
-await test('searchGmail 403 lanca erro de permissoes', async () => {
+await test('startMicrosoftAuth lanca erro administrativo claro', async () => {
   resetStorage();
   const svc = new OAuthService();
-  seedGoogle();
-  mockFetchOnce(makeFetchResp({}, 403));
-  let msg = '';
-  try { await svc.searchGmail('fatura'); } catch (e) { msg = e.message; }
-  assert(/permiss/i.test(msg), `Esperava erro de permissoes, veio: ${msg}`);
+  if (svc.isMicrosoftConfigured()) return;
+  const err = await svc.startMicrosoftAuth().then(() => null, e => e);
+  assert(err instanceof OAuthError, 'Deve ser OAuthError');
+  assertEqual(err.message, ADMIN_NOT_CONFIGURED_MSG);
 });
 
-await test('searchGmail propaga falha de rede sem travar', async () => {
+// ---------------------------------------------------------------------------
+// Grupo 12: Prevencao de duplicidade
+// ---------------------------------------------------------------------------
+console.log('\n\ud83d\udce6 Grupo 12: Prevencao de duplicidade');
+
+await test('isImported/markImported registram e consultam chaves', () => {
   resetStorage();
   const svc = new OAuthService();
-  seedGoogle();
-  mockFetch(async () => { throw new Error('network down'); });
-  let threw = false;
-  try { await svc.searchGmail('fatura'); } catch { threw = true; }
-  assert(threw, 'Falha de rede deve propagar como erro');
+  assertEqual(svc.isImported('google:abc'), false);
+  svc.markImported('google:abc');
+  assertEqual(svc.isImported('google:abc'), true);
+  assertEqual(svc.isImported('microsoft:abc'), false);
 });
 
-await test('searchOutlook 401 lanca erro de sessao expirada', async () => {
+await test('markImported limita o historico a 300 chaves', () => {
   resetStorage();
   const svc = new OAuthService();
-  seedMicrosoft();
-  mockFetchOnce(makeFetchResp({}, 401));
-  let msg = '';
-  try { await svc.searchOutlook('fatura'); } catch (e) { msg = e.message; }
-  assert(/expirada/i.test(msg), `Esperava erro de sessao expirada, veio: ${msg}`);
+  for (let i = 0; i < 320; i++) svc.markImported('m:' + i);
+  const saved = JSON.parse(localStorage.getItem('rateio_imported_msgs'));
+  assertEqual(saved.length, 300);
+  assertEqual(saved[0], 'm:20');
 });
 
-await test('searchOutlook 403 lanca erro de permissoes', async () => {
-  resetStorage();
+// ---------------------------------------------------------------------------
+// Grupo 13: Ausencia de tokens em logs (Secao 12)
+// ---------------------------------------------------------------------------
+console.log('\n\ud83d\udce6 Grupo 13: Logs sem tokens');
+
+await test('redact mascara tokens e conteudo sensivel', () => {
+  const out = redact('Bearer abc.def.ghi ya29.SECRET access_token=segredo');
+  assert(!/ya29\./.test(out), 'Token do Google nao pode aparecer');
+  assert(!/abc\.def\.ghi/.test(out), 'Token Bearer nao pode aparecer');
+  assert(!/segredo/.test(out), 'access_token nao pode aparecer');
+  assert(/redigido/.test(out), 'Deve indicar a redacao');
+});
+
+await test('logs de diagnostico nunca expoem tokens', () => {
   const svc = new OAuthService();
-  seedMicrosoft();
-  mockFetchOnce(makeFetchResp({}, 403));
-  let msg = '';
-  try { await svc.searchOutlook('fatura'); } catch (e) { msg = e.message; }
-  assert(/permiss/i.test(msg), `Esperava erro de permissoes, veio: ${msg}`);
+  const seen = [];
+  const orig = console.warn;
+  console.warn = (...a) => seen.push(a.map(String).join(' '));
+  try {
+    svc._diag('falha ao renovar com ya29.SECRET123', 'jwt eyJhbGciOiJIUzI1Ni.JJJJ.SIG');
+  } finally {
+    console.warn = orig;
+  }
+  const out = seen.join('\n');
+  assert(!/ya29\./.test(out), 'Token do Google nao deve ser registrado');
+  assert(!/eyJ[\w-]+\.[\w-]+\.[\w-]+/.test(out), 'JWT nao deve ser registrado');
+  assert(/redigido/.test(out), 'Valores sensiveis devem ser substituidos');
 });
 
-// --- Grupo 12: Resultados vazios e anexos ---
-console.log('\n\ud83d\udce6 Grupo 12: Resultados vazios e anexos');
+// ---------------------------------------------------------------------------
+// Grupo 14: Tokens nunca em localStorage
+// ---------------------------------------------------------------------------
+console.log('\n\ud83d\udce6 Grupo 14: Tokens apenas em sessionStorage');
 
-await test('searchGmail sem mensagens retorna lista vazia', async () => {
+await test('_storeGoogleToken nao grava tokens em localStorage', async () => {
   resetStorage();
-  const svc = new OAuthService();
-  seedGoogle();
-  mockFetchOnce(makeFetchResp({ resultSizeEstimate: 0 }));
-  const r = await svc.searchGmail('fatura');
-  assertEqual(r.messages.length, 0);
-  assertEqual(r.nextPageToken, null);
-});
-
-await test('searchOutlook sem mensagens retorna lista vazia', async () => {
-  resetStorage();
-  const svc = new OAuthService();
-  seedMicrosoft();
-  mockFetchOnce(makeFetchResp({ value: [] }));
-  const r = await svc.searchOutlook('fatura');
-  assertEqual(r.messages.length, 0);
-  assertEqual(r.nextLink, null);
-});
-
-await test('getGmailMessage filtra anexos de tipo nao suportado', async () => {
-  resetStorage();
-  const svc = new OAuthService();
-  seedGoogle();
-  mockFetchOnce(makeFetchResp({
-    id: 'm9', threadId: 't9', snippet: 'x',
-    payload: {
-      headers: [{ name: 'Subject', value: 'Teste' }],
-      mimeType: 'multipart/mixed',
-      parts: [
-        { filename: 'fatura.pdf', mimeType: 'application/pdf', body: { attachmentId: 'a1', size: 10 } },
-        { filename: 'malware.exe', mimeType: 'application/octet-stream', body: { attachmentId: 'a2', size: 10 } }
-      ]
-    }
-  }));
-  const m = await svc.getGmailMessage('m9');
-  assertEqual(m.attachments.length, 1, 'Apenas anexos suportados devem permanecer');
-  assertEqual(m.attachments[0].name, 'fatura.pdf');
-});
-
-await test('searchOutlook mensagens sem anexos permanecem validas', async () => {
-  resetStorage();
-  const svc = new OAuthService();
-  seedMicrosoft();
-  mockFetchOnce(makeFetchResp({
-    value: [{
-      id: 'o1', subject: 'Sem anexo',
-      from: { emailAddress: { address: 'a@b.com' } },
-      body: { content: '<p>x</p>' }, hasAttachments: false,
-      receivedDateTime: '2024-01-01T00:00:00Z'
-    }]
-  }));
-  const r = await svc.searchOutlook('fatura');
-  assertEqual(r.messages.length, 1);
-  assertEqual(r.messages[0].atts, null);
-});
-
-// --- Grupo 13: Client ID ausente/invalido ---
-console.log('\n\ud83d\udce6 Grupo 13: Client ID ausente ou invalido');
-
-await test('startGoogleAuth lanca sem Client ID configurado', async () => {
-  resetStorage();
-  const svc = new OAuthService();
-  let msg = '';
-  try { await svc.startGoogleAuth(); } catch (e) { msg = e.message; }
-  assert(/não configurado/i.test(msg), `Esperava erro de configuracao, veio: ${msg}`);
-});
-
-await test('startMicrosoftAuth lanca sem Client ID configurado', async () => {
-  resetStorage();
-  const svc = new OAuthService();
-  let msg = '';
-  try { await svc.startMicrosoftAuth(); } catch (e) { msg = e.message; }
-  assert(/não configurado/i.test(msg), `Esperava erro de configuracao, veio: ${msg}`);
-});
-
-// --- Grupo 14: Cancelamento / PKCE ausente ---
-console.log('\n\ud83d\udce6 Grupo 14: Cancelamento e PKCE ausente');
-
-await test('completeMicrosoftAuth sem verifier lanca erro (cancelamento/fluxo invalido)', async () => {
-  resetStorage();
-  const svc = new OAuthService();
-  sessionStorage.setItem('oauth_ms_state', 'ms_xyz');
-  let threw = false;
-  try { await svc.completeMicrosoftAuth('auth_code', 'ms_xyz'); } catch { threw = true; }
-  assert(threw, 'Deve lancar quando o code_verifier do PKCE esta ausente');
-});
-
-// --- Grupo 15: Ausencia de persistencia indevida de tokens ---
-console.log('\n\ud83d\udce6 Grupo 15: Sem persistencia indevida de tokens');
-
-await test('completeGoogleAuth nao grava tokens em localStorage', async () => {
-  resetStorage();
-  sessionStorage.setItem('oauth_google_state', 'g_abc');
   mockFetchOnce(makeFetchResp({ emailAddress: 'u@gmail.com' }));
   const svc = new OAuthService();
-  await svc.completeGoogleAuth('tok', '3600', 'g_abc');
+  await svc._storeGoogleToken('tok', '3600');
   assertEqual(localStorage.getItem('oauth_google_token'), null, 'Token nao deve ir para localStorage');
   assertEqual(localStorage.getItem('oauth_google_email'), null, 'Email nao deve ir para localStorage');
   assertEqual(sessionStorage.getItem('oauth_google_token'), 'tok', 'Token deve estar em sessionStorage');
@@ -520,9 +619,10 @@ await test('construtor remove tokens legados do localStorage', () => {
   resetStorage();
   localStorage.setItem('oauth_google_token', 'legacy_tok');
   localStorage.setItem('oauth_google_exp', String(Date.now() + 1000));
-  const svc = new OAuthService();
+  localStorage.setItem('cid', 'legacy_cid');
+  new OAuthService();
   assertEqual(localStorage.getItem('oauth_google_token'), null, 'Token legado deve ser removido');
-  assertEqual(svc.getStatus('google').status, 'nao_conectado');
+  assertEqual(localStorage.getItem('cid'), null, 'Client ID legado do usuario deve ser removido');
 });
 
 await test('disconnectGoogle nao deixa token em nenhum storage', async () => {
