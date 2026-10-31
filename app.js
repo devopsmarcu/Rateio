@@ -2219,7 +2219,7 @@ const A = {
     if (!navigator.onLine) return toast('Gmail requer conexão com a internet');
     const t = $('#gq')?.value.trim() || 'fatura';
     const q = /newer_than/.test(t) ? t : t + ' newer_than:90d';
-    if (S.imp) S.imp.q = t;
+    if (S.imp) { S.imp.q = t; S.imp.qeff = q; }
     try {
       const result = await oauthService.searchGmail(q, 12);
       S.msgs = result.messages;
@@ -2262,7 +2262,7 @@ const A = {
     try {
       let result;
       if (imp.origin === 'gmail') {
-        result = await oauthService.searchGmail(imp.q || 'fatura', 12, imp.nextPage);
+        result = await oauthService.searchGmail(imp.qeff || imp.q || 'fatura', 12, imp.nextPage);
       } else {
         result = await oauthService.searchOutlook(imp.q || 'fatura', 12, imp.nextPage);
       }

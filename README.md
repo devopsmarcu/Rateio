@@ -205,6 +205,62 @@ Usuário -> Rateio de Faturas -> Microsoft -> Autorização -> Microsoft Graph
 
 Essas integrações devem solicitar apenas permissões mínimas e respeitar princípios de segurança e privacidade.
 
+## Configuração OAuth (Gmail e Outlook)
+
+A autenticação é configurada **uma única vez** pelo responsável pelo aplicativo (Client IDs públicos).
+Cada usuário autoriza a **própria** conta ao usar a aplicação — ninguém precisa criar um projeto no
+Google Cloud ou no Azure.
+
+### Onde preencher os Client IDs
+
+Os valores reais podem ser definidos de duas formas:
+
+1. **Em tempo de execução**, na própria aplicação: *Ajustes → Gerenciar credenciais OAuth* (gravados em `localStorage`).
+2. **No código**, editando [oauth-config.js](oauth-config.js) (constantes `DEFAULT_GOOGLE_CLIENT_ID` e
+   `DEFAULT_MICROSOFT_CLIENT_ID`). Consulte o arquivo de exemplo comentado em
+   [oauth-config.example.js](oauth-config.example.js).
+
+Nunca inclua *Client Secret* no frontend — uma SPA pública não possui segredo. Os Client IDs são
+públicos por natureza em aplicações executadas no navegador.
+
+### Google Cloud (Gmail)
+
+1. Criar/selecionar um projeto no [Google Cloud Console](https://console.cloud.google.com/).
+2. Ativar a **Gmail API**.
+3. Configurar a **Tela de consentimento OAuth** (tipo Externo) e cadastrar os usuários de teste
+   enquanto o app não estiver verificado.
+4. Criar um **ID do cliente OAuth** do tipo **Aplicativo da Web**.
+5. Em **Origens JavaScript autorizadas**, incluir a origem de publicação, por exemplo
+   `https://devopsmarcu.github.io`.
+6. Em **URIs de redirecionamento autorizados**, incluir `https://devopsmarcu.github.io/rateio/`
+   (ou a raiz, conforme o diretório do projeto).
+7. Escopos utilizados: `https://www.googleapis.com/auth/gmail.readonly` (somente leitura de mensagens).
+
+> **Verificação obrigatória:** `gmail.readonly` é um escopo restrito. Para uso **público**, o Google
+> exige um processo de verificação/avaliação de segurança. Enquanto isso não é concluído, apenas
+> contas de teste cadastradas conseguem autorizar. Um Client ID válido **não** dispensa essa exigência.
+
+### Microsoft Entra (Outlook / Hotmail / Microsoft 365)
+
+1. Acessar o [Microsoft Entra](https://entra.microsoft.com/) (ou o portal do Azure).
+2. **Registros de aplicativo → Novo registro**.
+3. Tipos de conta: *Contas em qualquer diretório organizacional e contas pessoais da Microsoft*.
+4. Em **Autenticação**, habilitar a plataforma **Single-page application (SPA)** e cadastrar o
+   redirect URI (`https://devopsmarcu.github.io/rateio/`). O fluxo usa **Authorization Code + PKCE**.
+5. Permissões de API delegadas do **Microsoft Graph**: `User.Read` e `Mail.Read` (somente leitura).
+6. Se a organização exigir, conceder **consentimento administrativo**.
+
+### Como testar
+
+```bash
+node test_oauth.mjs
+```
+
+A suíte usa *mocks* das APIs externas e não requer credenciais reais.
+
+> Funcionar com a conta do desenvolvedor **não** significa que a integração está pronta para uso
+> público: o processo de verificação, consentimento e políticas dos dois provedores ainda é necessário.
+
 ## Segurança e privacidade
 
 Este projeto lida com informações financeiras sensíveis, portanto a privacidade é um ponto crítico.

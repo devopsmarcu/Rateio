@@ -18,33 +18,50 @@ function b64url(buffer) {
     .replace(/=+$/, '');
 }
 
-// Armazenamento de sessão seguro (sessionStorage para tokens de curta duração)
+// Armazenamento de sessão: tokens e dados de sessão ficam apenas em sessionStorage,
+// que é efêmero e limitado à aba/janela (ver Seção 7 do enunciado — não persistir
+// tokens de acesso em localStorage). sessionStorage sobrevive ao redirect do OAuth
+// dentro da mesma aba.
 const STORAGE = {
   get: k => {
     try {
-      return sessionStorage.getItem('oauth_' + k) || localStorage.getItem('oauth_' + k);
+      return sessionStorage.getItem('oauth_' + k);
     } catch {
       return null;
     }
   },
-  set: (k, v, persist = false) => {
+  set: (k, v) => {
     try {
       sessionStorage.setItem('oauth_' + k, v);
-      // Para manter a sessão após redirects em navegadores móveis, salvamos metadados de sessão
-      if (persist) localStorage.setItem('oauth_' + k, v);
     } catch {}
   },
   remove: k => {
     try {
       sessionStorage.removeItem('oauth_' + k);
+      // Remove também eventual valor legado gravado em localStorage por versões antigas
       localStorage.removeItem('oauth_' + k);
     } catch {}
   }
 };
 
+// Chaves sensíveis que versões anteriores gravavam em localStorage. Removidas na
+// inicialização para não deixar tokens/PII residuais no armazenamento persistente.
+const LEGACY_LOCAL_KEYS = [
+  'oauth_google_token', 'oauth_google_exp', 'oauth_google_email', 'oauth_google_state',
+  'oauth_microsoft_token', 'oauth_microsoft_exp', 'oauth_microsoft_email',
+  'oauth_ms_verifier', 'oauth_ms_state'
+];
+function purgeLegacyLocalKeys() {
+  try {
+    LEGACY_LOCAL_KEYS.forEach(k => localStorage.removeItem(k));
+  } catch {}
+}
+
 export class OAuthService {
   constructor() {
     this.redirectUri = getRedirectUri();
+    // Limpa tokens legados que possam estar em localStorage de versões anteriores
+    purgeLegacyLocalKeys();
   }
 
   // ------------------------------------------------------------------------
@@ -56,7 +73,9 @@ export class OAuthService {
    * Estados possíveis: 'nao_conectado', 'conectado', 'expirado', 'erro'
    */
   getStatus(provider) {
-    const token = this.getToken(provider);
+    // Lê o token bruto do storage: getToken() oculta tokens expirados, mas aqui
+    // precisamos distingui-los de 'nao_conectado' para exibir o estado 'expirado'.
+    const token = STORAGE.get(provider + '_token');
     if (!token) return { status: 'nao_conectado', email: null };
 
     const exp = +(STORAGE.get(provider + '_exp') || 0);
@@ -104,7 +123,7 @@ export class OAuthService {
 
     // Salva estado da sessão antes do redirecionamento
     const state = 'g_' + Math.random().toString(36).substring(2, 10);
-    STORAGE.set('google_state', state, true);
+    STORAGE.set('google_state', state);
 
     const params = new URLSearchParams({
       client_id: cid,
@@ -128,18 +147,18 @@ export class OAuthService {
     STORAGE.remove('google_state');
 
     const expTime = Date.now() + (parseInt(expiresIn, 10) || 3600) * 1000;
-    STORAGE.set('google_token', accessToken, true);
-    STORAGE.set('google_exp', String(expTime), true);
+    STORAGE.set('google_token', accessToken);
+    STORAGE.set('google_exp', String(expTime));
 
     // Buscar perfil para exibir o email conectado
     try {
       const profile = await this.getGoogleProfile(accessToken);
       if (profile?.emailAddress) {
-        STORAGE.set('google_email', profile.emailAddress, true);
+        STORAGE.set('google_email', profile.emailAddress);
       }
     } catch (e) {
       console.warn('Erro ao obter perfil do Google:', e);
-      STORAGE.set('google_email', 'Conta Google Conectada', true);
+      STORAGE.set('google_email', 'Conta Google Conectada');
     }
   }
 
@@ -305,9 +324,9 @@ export class OAuthService {
     const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
     const challenge = b64url(hash);
 
-    STORAGE.set('ms_verifier', verifier, true);
+    STORAGE.set('ms_verifier', verifier);
     const state = 'ms_' + Math.random().toString(36).substring(2, 10);
-    STORAGE.set('ms_state', state, true);
+    STORAGE.set('ms_state', state);
 
     const params = new URLSearchParams({
       client_id: cid,
@@ -358,17 +377,17 @@ export class OAuthService {
     }
 
     const expTime = Date.now() + (parseInt(tokenData.expires_in, 10) || 3600) * 1000;
-    STORAGE.set('microsoft_token', tokenData.access_token, true);
-    STORAGE.set('microsoft_exp', String(expTime), true);
+    STORAGE.set('microsoft_token', tokenData.access_token);
+    STORAGE.set('microsoft_exp', String(expTime));
 
     // Buscar perfil do usuário para exibir email conectado
     try {
       const profile = await this.getMicrosoftProfile(tokenData.access_token);
       const email = profile?.mail || profile?.userPrincipalName || 'Conta Microsoft Conectada';
-      STORAGE.set('microsoft_email', email, true);
+      STORAGE.set('microsoft_email', email);
     } catch (e) {
       console.warn('Erro ao obter perfil Microsoft:', e);
-      STORAGE.set('microsoft_email', 'Conta Microsoft Conectada', true);
+      STORAGE.set('microsoft_email', 'Conta Microsoft Conectada');
     }
   }
 
