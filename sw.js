@@ -1,4 +1,4 @@
-const V='rateio-v6',SHELL=['./','index.html','styles.css','app.js','db-worker.js','manifest.json','lib/pdf.min.mjs','lib/pdf.worker.min.mjs','icon-192.png','icon-512.png','sqlite/sqlite3.mjs','sqlite/sqlite3.wasm','sqlite/sqlite3-opfs-async-proxy.js'];
+const V='rateio-v7',SHELL=['./','index.html','styles.css','app.js','oauth-config.js','oauth-service.js','db-worker.js','manifest.json','lib/pdf.min.mjs','lib/pdf.worker.min.mjs','icon-192.png','icon-512.png','sqlite/sqlite3.mjs','sqlite/sqlite3.wasm','sqlite/sqlite3-opfs-async-proxy.js'];
 // Injeta COOP/COEP (necessário p/ SharedArrayBuffer => VFS opfs) em respostas same-origin
 const wrap=r=>{if(!r||r.type==='opaque'||!r.status)return r;const h=new Headers(r.headers);h.set('Cross-Origin-Embedder-Policy','require-corp');h.set('Cross-Origin-Opener-Policy','same-origin');return new Response(r.body,{status:r.status,statusText:r.statusText,headers:h})};
 self.oninstall=e=>{self.skipWaiting();e.waitUntil(caches.open(V).then(c=>Promise.all(SHELL.map(u=>c.add(u).catch(()=>0)))))};

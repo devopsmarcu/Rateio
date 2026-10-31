@@ -1410,3 +1410,52 @@ body.overlay #toast {
   background: var(--accent);
   border-radius: 999px;
 }
+
+/* Chips de busca rápida e Account Banner */
+.search-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 16px 10px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.search-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  color: var(--label);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.15s;
+  cursor: pointer;
+}
+
+.chip:active {
+  background: var(--fill-secondary);
+}
+
+.account-banner {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  margin: 6px 16px 12px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.account-banner .account-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
