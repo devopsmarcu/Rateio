@@ -18,6 +18,13 @@ const f2 = x => {
 const num = s => f2(String(s).replace(/[R$\s]/g, ''));
 const APP_VER = '1.2.0';
 
+// Helpers de data local (não UTC) para evitar erro de dia/mês após 21h no Brasil (UTC-3)
+const hojeISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const mesAtual = () => hojeISO().slice(0, 7);
+
 // Estado global da aplicação
 const S = {
   tab: 'inicio',
@@ -56,13 +63,6 @@ const dataCurta = d => {
   const x = new Date(d + 'T12:00:00');
   return isNaN(x) ? d : x.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 };
-
-// Helpers de data local (não UTC) para evitar erro de dia/mês após 21h no Brasil (UTC-3)
-const hojeISO = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
-const mesAtual = () => hojeISO().slice(0, 7);
 const vencida = (f, hoje = hojeISO()) => !f.pago && f.data_vencimento && f.data_vencimento < hoje;
 const proxVenc = (f, hoje = hojeISO()) => {
   if (f.pago || !f.data_vencimento || f.data_vencimento < hoje) return false;
