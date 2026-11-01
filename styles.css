@@ -16,55 +16,89 @@
   --quaternary: #E5E5EA;
   --separator: rgba(60, 60, 67, 0.12);
   --separator-opaque: #E5E5EA;
-  
+
   --fill: rgba(120, 120, 128, 0.08);
   --fill-secondary: rgba(120, 120, 128, 0.16);
   --fill-tertiary: rgba(120, 120, 128, 0.24);
-  
+
   --accent: #007AFF;
   --accent-press: #0062CC;
   --accent-soft: rgba(0, 122, 255, 0.10);
   --accent-tint: #EBF5FF;
-  
+
   --ok: #34C759;
   --ok-press: #248A3D;
   --ok-bg: rgba(52, 199, 89, 0.12);
   --ok-solid: #34C759;
-  
+
   --warn: #FF9500;
   --warn-press: #C77B00;
   --warn-bg: rgba(255, 149, 0, 0.12);
-  
+
   --bad: #FF3B30;
   --bad-press: #D70015;
   --bad-bg: rgba(255, 59, 48, 0.12);
-  
+
   --on-accent: #FFFFFF;
   --nav-bg: rgba(249, 249, 249, 0.88);
   --hairline: rgba(60, 60, 67, 0.18);
-  
+
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.06);
   --shadow-sheet: 0 -10px 40px rgba(0, 0, 0, 0.14);
-  
+
   /* Cores de Bancos */
   --banco-nubank: #820AD1;
   --banco-mercadopago: #009EE3;
   --banco-santander: #CC0000;
   --banco-picpay: #11C76F;
   --banco-default: #007AFF;
-  
-  /* Tipografia & Formas */
+
+  /* Tipografia & Formas — Escala Semântica iOS 17 */
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", system-ui, sans-serif;
   --num: tabular-nums lining-nums;
   --touch: 44px;
+  --touch-lg: 48px;
   --radius-xs: 6px;
   --radius-sm: 10px;
   --radius-md: 14px;
   --radius-lg: 18px;
   --radius-xl: 22px;
   --radius-pill: 999px;
-  
+
+  /* Safe Area Insets */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  /* Tipografia Semântica (Dynamic Type compatible) */
+  --text-large-title: 34px;
+  --text-title1: 28px;
+  --text-title2: 22px;
+  --text-title3: 20px;
+  --text-headline: 17px;
+  --text-body: 17px;
+  --text-callout: 16px;
+  --text-subheadline: 15px;
+  --text-footnote: 13px;
+  --text-caption1: 12px;
+  --text-caption2: 11px;
+
+  /* Font Weights */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Motion */
+  --motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --motion-duration-fast: 150ms;
+  --motion-duration-normal: 250ms;
+  --motion-duration-slow: 350ms;
+
   color-scheme: light;
 }
 
@@ -81,38 +115,74 @@
   --quaternary: #3A3A3C;
   --separator: rgba(84, 84, 88, 0.45);
   --separator-opaque: #38383A;
-  
+
   --fill: rgba(120, 120, 128, 0.24);
   --fill-secondary: rgba(120, 120, 128, 0.36);
   --fill-tertiary: rgba(120, 120, 128, 0.48);
-  
+
   --accent: #0A84FF;
   --accent-press: #409CFF;
   --accent-soft: rgba(10, 132, 255, 0.20);
   --accent-tint: rgba(10, 132, 255, 0.15);
-  
+
   --ok: #30D158;
   --ok-press: #28B848;
   --ok-bg: rgba(48, 209, 88, 0.18);
   --ok-solid: #30D158;
-  
+
   --warn: #FFD60A;
   --warn-press: #E5BE00;
   --warn-bg: rgba(255, 214, 10, 0.16);
-  
+
   --bad: #FF453A;
   --bad-press: #FF6961;
   --bad-bg: rgba(255, 69, 58, 0.20);
-  
+
   --on-accent: #FFFFFF;
   --nav-bg: rgba(22, 22, 24, 0.88);
   --hairline: rgba(84, 84, 88, 0.50);
-  
+
   --shadow-sm: none;
   --shadow-md: none;
   --shadow-sheet: 0 -12px 48px rgba(0, 0, 0, 0.75);
-  
+
   color-scheme: dark;
+}
+
+/* ==========================================================================
+   Reduced Motion — Respeita prefers-reduced-motion
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration-fast: 0ms;
+    --motion-duration-normal: 0ms;
+    --motion-duration-slow: 0ms;
+  }
+
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ==========================================================================
+   High Contrast — Suporte a prefers-contrast
+   ========================================================================== */
+@media (prefers-contrast: more) {
+  :root {
+    --separator: rgba(60, 60, 67, 0.5);
+    --hairline: rgba(60, 60, 67, 0.8);
+    --fill: rgba(120, 120, 128, 0.3);
+    --fill-secondary: rgba(120, 120, 128, 0.5);
+  }
+  [data-theme="dark"] {
+    --separator: rgba(84, 84, 88, 0.8);
+    --hairline: rgba(84, 84, 88, 0.9);
+    --fill: rgba(120, 120, 128, 0.5);
+    --fill-secondary: rgba(120, 120, 128, 0.7);
+  }
 }
 
 /* ==========================================================================
@@ -144,13 +214,58 @@ html, body {
 
 body {
   padding-top: max(12px, env(safe-area-inset-top));
-  padding-bottom: calc(56px + max(12px, env(safe-area-inset-bottom)));
+  padding-bottom: calc(49px + max(12px, env(safe-area-inset-bottom)));
   overflow-x: hidden;
   overscroll-behavior-y: none;
 }
 
 body.overlay {
   padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+/* Minimum touch target enforcement */
+button, a, input, select, textarea, [role="button"], [tabindex="0"] {
+  min-height: var(--touch);
+  min-width: var(--touch);
+}
+
+/* Exception for inline elements that should not enforce min-size */
+.sheet .grab,
+.pill,
+.dot,
+.steps i,
+.radio-mark,
+.banco-badge,
+.avatar,
+.origin .ico,
+.proc-step-icon,
+.conf-status-card .status-ico,
+.empty .ico,
+.chip,
+.search-chips button,
+.topbar .link svg,
+.month-pill svg,
+.seg button svg,
+.conf-status-card .status-ico {
+  min-height: auto;
+  min-width: auto;
+}
+
+/* Ensure interactive elements have proper touch targets */
+.topbar .link,
+.cell.pressable,
+.origin button,
+.action-list button,
+.btn,
+.seg button,
+.chip,
+.month-pill,
+.pix-key,
+.btn.ghost,
+input[type="checkbox"],
+input[type="radio"] {
+  min-height: var(--touch);
+  min-width: var(--touch);
 }
 
 button, input, select, textarea {
@@ -189,7 +304,7 @@ a {
 #app {
   max-width: 440px;
   margin: 0 auto;
-  min-height: calc(100dvh - 56px - env(safe-area-inset-bottom) - env(safe-area-inset-top));
+  min-height: calc(100dvh - 49px - env(safe-area-inset-bottom) - env(safe-area-inset-top));
   padding: 0 0 32px;
   display: flex;
   flex-direction: column;
@@ -200,19 +315,99 @@ body.overlay #app {
 }
 
 /* ==========================================================================
-   Tipografia
+   Tipografia — Escala Semântica iOS 17
    ========================================================================== */
 .large-title {
-  font-size: 30px;
-  font-weight: 700;
+  font-size: var(--text-large-title);
+  font-weight: var(--weight-bold);
   letter-spacing: -0.02em;
   line-height: 1.15;
   color: var(--label);
 }
 
+.title1 {
+  font-size: var(--text-title1);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.015em;
+  line-height: 1.22;
+  color: var(--label);
+}
+
+.title2 {
+  font-size: var(--text-title2);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  color: var(--label);
+}
+
+.title3 {
+  font-size: var(--text-title3);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.005em;
+  line-height: 1.25;
+  color: var(--label);
+}
+
+.headline {
+  font-size: var(--text-headline);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+  color: var(--label);
+}
+
+.body {
+  font-size: var(--text-body);
+  font-weight: var(--weight-regular);
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  color: var(--label);
+}
+
+.callout {
+  font-size: var(--text-callout);
+  font-weight: var(--weight-regular);
+  letter-spacing: -0.005em;
+  line-height: 1.4;
+  color: var(--label);
+}
+
+.subheadline {
+  font-size: var(--text-subheadline);
+  font-weight: var(--weight-regular);
+  letter-spacing: -0.005em;
+  line-height: 1.4;
+  color: var(--secondary);
+}
+
+.footnote {
+  font-size: var(--text-footnote);
+  font-weight: var(--weight-regular);
+  letter-spacing: 0;
+  line-height: 1.4;
+  color: var(--secondary);
+}
+
+.caption1 {
+  font-size: var(--text-caption1);
+  font-weight: var(--weight-regular);
+  letter-spacing: 0;
+  line-height: 1.35;
+  color: var(--tertiary);
+}
+
+.caption2 {
+  font-size: var(--text-caption2);
+  font-weight: var(--weight-regular);
+  letter-spacing: 0;
+  line-height: 1.3;
+  color: var(--tertiary);
+}
+
 .nav-title {
-  font-size: 17px;
-  font-weight: 600;
+  font-size: var(--text-headline);
+  font-weight: var(--weight-semibold);
   letter-spacing: -0.015em;
   text-align: center;
   white-space: nowrap;
@@ -221,27 +416,20 @@ body.overlay #app {
 }
 
 .section-label {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--text-caption1);
+  font-weight: var(--weight-semibold);
   color: var(--secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin: 22px 20px 8px;
 }
 
-.footnote {
-  font-size: 13px;
-  color: var(--secondary);
-  line-height: 1.4;
-  margin: 6px 20px 0;
-}
-
 .mut { color: var(--secondary); }
 .ter { color: var(--tertiary); }
-.sm { font-size: 13px; line-height: 1.35; }
-.xs { font-size: 11px; line-height: 1.3; }
-.bold { font-weight: 600; }
-.bolder { font-weight: 700; }
+.sm { font-size: var(--text-footnote); line-height: 1.35; }
+.xs { font-size: var(--text-caption2); line-height: 1.3; }
+.bold { font-weight: var(--weight-semibold); }
+.bolder { font-weight: var(--weight-bold); }
 
 .ok { color: var(--ok); }
 .warn { color: var(--warn); }
@@ -249,13 +437,13 @@ body.overlay #app {
 
 .money {
   font-variant-numeric: var(--num);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   letter-spacing: -0.02em;
 }
 
 .money-xl {
-  font-size: 34px;
-  font-weight: 700;
+  font-size: var(--text-large-title);
+  font-weight: var(--weight-bold);
   letter-spacing: -0.03em;
   font-variant-numeric: var(--num);
   line-height: 1.1;
@@ -263,8 +451,8 @@ body.overlay #app {
 }
 
 .money-lg {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: var(--text-title2);
+  font-weight: var(--weight-bold);
   letter-spacing: -0.02em;
   font-variant-numeric: var(--num);
 }
@@ -391,11 +579,11 @@ body.overlay #app {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 50px;
+  min-height: var(--touch);
   padding: 12px 16px;
   position: relative;
   background: var(--surface);
-  transition: background-color 0.12s ease;
+  transition: background-color var(--motion-duration-fast) var(--motion-ease);
 }
 
 .cell + .cell::before {
@@ -473,7 +661,7 @@ body.overlay #app {
   background: var(--ok);
   border-radius: 999px;
   width: 0;
-  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width var(--motion-duration-slow) var(--motion-ease);
 }
 
 .hero .sub-metrics {
@@ -595,13 +783,13 @@ body.overlay #app {
 
 .seg button {
   flex: 1;
-  min-height: 32px;
+  min-height: var(--touch);
   border-radius: 9px;
   font-size: 13px;
   font-weight: 600;
   color: var(--label);
   text-align: center;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all var(--motion-duration-fast) var(--motion-ease);
 }
 
 .seg button.on {
@@ -630,7 +818,7 @@ body.overlay #app {
   font-size: 17px;
   font-weight: 600;
   width: 100%;
-  transition: all 0.15s ease;
+  transition: all var(--motion-duration-fast) var(--motion-ease);
   letter-spacing: -0.015em;
 }
 
@@ -656,7 +844,7 @@ body.overlay #app {
 
 .btn.ghost {
   color: var(--accent);
-  min-height: 44px;
+  min-height: var(--touch);
 }
 
 .btn.danger {
@@ -671,6 +859,12 @@ body.overlay #app {
 .btn:disabled {
   opacity: 0.4;
   pointer-events: none;
+}
+
+/* Focus visible para acessibilidade */
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .fab-wrap {
@@ -717,7 +911,7 @@ textarea.field {
 }
 
 /* ==========================================================================
-   Barra de Navegação Inferior (Tabbar iOS)
+   Barra de Navegação Inferior (Tabbar iOS) — 49pt height per HIG
    ========================================================================== */
 #tabbar {
   position: fixed;
@@ -730,8 +924,9 @@ textarea.field {
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-top: 0.5px solid var(--hairline);
-  padding: 4px 6px max(6px, env(safe-area-inset-bottom));
-  height: calc(52px + max(6px, env(safe-area-inset-bottom)));
+  padding: 4px max(6px, env(safe-area-inset-left)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-right));
+  height: calc(49px + max(6px, env(safe-area-inset-bottom)));
+  /* Safe area already handled via padding-bottom on body */
 }
 
 body.overlay #tabbar {
@@ -744,19 +939,22 @@ body.overlay #tabbar {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  min-height: 46px;
+  gap: 2px;
+  min-height: var(--touch);
+  min-width: var(--touch);
   color: var(--secondary);
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.02em;
-  transition: color 0.15s ease;
+  transition: color var(--motion-duration-fast) var(--motion-ease);
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
 }
 
 #tabbar button svg {
-  width: 24px;
-  height: 24px;
-  transition: transform 0.15s ease;
+  width: 25px;
+  height: 25px;
+  transition: transform var(--motion-duration-fast) var(--motion-ease);
 }
 
 #tabbar button.on {
@@ -764,8 +962,18 @@ body.overlay #tabbar {
   font-weight: 600;
 }
 
+#tabbar button:active {
+  background: var(--fill);
+}
+
 #tabbar button:active svg {
   transform: scale(0.92);
+}
+
+/* Focus visible para acessibilidade */
+#tabbar button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ==========================================================================
@@ -888,12 +1096,18 @@ body.overlay #tabbar {
   min-height: 76px;
   text-align: left;
   box-shadow: var(--shadow-sm);
-  transition: background 0.15s, transform 0.15s;
+  transition: background var(--motion-duration-fast) var(--motion-ease), transform var(--motion-duration-fast) var(--motion-ease);
 }
 
 .origin button:active {
   background: var(--fill);
   transform: scale(0.99);
+}
+
+/* Focus visible para acessibilidade */
+.origin button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .origin .ico {
@@ -981,7 +1195,7 @@ body.overlay #tabbar {
   stroke: var(--accent);
   stroke-dasharray: 251.2;
   stroke-dashoffset: 75.36; /* ~70% */
-  transition: stroke-dashoffset 0.3s ease;
+  transition: stroke-dashoffset var(--motion-duration-normal) var(--motion-ease);
 }
 
 .proc-ring-pct {
@@ -1131,7 +1345,7 @@ body.overlay #tabbar {
 }
 
 /* ==========================================================================
-   Bottom Sheet (Modal Inferior iOS)
+   Bottom Sheet (Modal Inferior iOS) — com swipe-to-dismiss
    ========================================================================== */
 .sheet-root {
   position: fixed;
@@ -1152,7 +1366,7 @@ body.overlay #tabbar {
   background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn var(--motion-duration-normal) var(--motion-ease-out);
 }
 
 .sheet {
@@ -1164,7 +1378,9 @@ body.overlay #tabbar {
   -webkit-overflow-scrolling: touch;
   padding: 10px 0 calc(20px + max(12px, env(safe-area-inset-bottom)));
   box-shadow: var(--shadow-sheet);
-  animation: slideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideUp var(--motion-duration-slow) var(--motion-ease);
+  transform-origin: bottom;
+  touch-action: pan-y;
 }
 
 @keyframes slideUp {
@@ -1177,12 +1393,24 @@ body.overlay #tabbar {
   to { opacity: 1; }
 }
 
+/* Swipe-to-dismiss state */
+.sheet-root.dragging .sheet {
+  animation: none;
+  transition: transform 0.05s linear, border-radius 0.05s linear;
+}
+
+.sheet-root.dragging .sheet-backdrop {
+  animation: none;
+  transition: opacity 0.05s linear;
+}
+
 .sheet .grab {
   width: 36px;
   height: 5px;
   border-radius: 3px;
   background: var(--tertiary);
   margin: 2px auto 14px;
+  touch-action: none;
 }
 
 .sheet h2 {
@@ -1195,7 +1423,7 @@ body.overlay #tabbar {
 }
 
 .sheet .sheet-pad {
-  padding: 0 16px;
+  padding: 0 max(16px, env(safe-area-inset-left)) 0 max(16px, env(safe-area-inset-right));
 }
 
 .sheet .rest {
@@ -1215,6 +1443,7 @@ body.overlay #tabbar {
   color: var(--accent);
   border-top: 0.5px solid var(--separator);
   font-weight: 500;
+  min-height: var(--touch);
 }
 
 .action-list button.bad {
@@ -1228,6 +1457,13 @@ body.overlay #tabbar {
 
 .action-list button:active {
   background: var(--fill);
+}
+
+/* Focus visible para acessibilidade */
+.action-list button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 0;
 }
 
 /* ==========================================================================
@@ -1248,7 +1484,7 @@ body.overlay #tabbar {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity var(--motion-duration-normal) var(--motion-ease), transform var(--motion-duration-normal) var(--motion-ease);
   max-width: min(90vw, 360px);
   text-align: center;
   letter-spacing: -0.01em;
@@ -1348,7 +1584,7 @@ body.overlay #toast {
   border-radius: 50%;
   border: 2px solid var(--tertiary);
   flex-shrink: 0;
-  transition: all 0.15s ease;
+  transition: all var(--motion-duration-fast) var(--motion-ease);
 }
 
 .cell.on .radio-mark {
@@ -1370,7 +1606,7 @@ body.overlay #toast {
   height: 6px;
   border-radius: 50%;
   background: var(--fill-secondary);
-  transition: all 0.2s ease;
+  transition: all var(--motion-duration-fast) var(--motion-ease);
 }
 
 .steps i.on {
@@ -1432,8 +1668,13 @@ body.overlay #toast {
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
-  transition: background 0.15s;
+  transition: background var(--motion-duration-fast) var(--motion-ease);
   cursor: pointer;
+  min-height: var(--touch);
+  min-width: var(--touch);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chip:active {
