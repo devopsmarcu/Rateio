@@ -12,27 +12,53 @@ permissions:
 
 concurrency:
   group: github-pages
-  cancel-in-progress: false
+  cancel-in-progress: false  # false intencional: evita deploy em estado quebrado
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Executar testes
+        run: node test_oauth.mjs
+
   deploy:
+    needs: test
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
     runs-on: ubuntu-latest
-
+    timeout-minutes: 10
     steps:
-      - name: Baixar código
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Configurar GitHub Pages
-        uses: actions/configure-pages@v5
+      - name: Atualizar versão do service worker
+        run: |
+          SHORT="${GITHUB_SHA::8}"
+          sed -i "s/rateio-v[0-9]*/rateio-${SHORT}/g" sw.js
 
-      - name: Preparar arquivos
-        uses: actions/upload-pages-artifact@v3
+      - name: Preparar arquivos de produção
+        run: |
+          mkdir dist
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='dist' \
+            --exclude='test_oauth.mjs' \
+            --exclude='*.md' \
+            . dist/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: dist
 
       - name: Publicar site
         id: deployment

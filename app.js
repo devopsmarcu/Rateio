@@ -18,6 +18,56 @@ const f2 = x => {
 const num = s => f2(String(s).replace(/[R$\s]/g, ''));
 const APP_VER = '1.2.0';
 
+// Remove acentos e caracteres especiais, mantém apenas ASCII imprimível
+const asciiOnly = s => String(s ?? '')
+  .normalize('NFD')
+  .replace(/[̀-ͯ]/g, '')
+  .replace(/[^\x20-\x7E]/g, '');
+
+// Gera payload Pix BR Code (EMV) conforme especificação do Banco Central
+function pixEmv({ chave, nome, cidade, valor, txid }) {
+  // Monta campos TLV: ID + tamanho (2 dígitos) + valor
+  const tlv = (id, value) => `${id}${String(value.length).padStart(2, '0')}${value}`;
+
+  // Campo 26 (merchant account) tem sub-TLVs
+  const merchantAccount = tlv('00', 'br.gov.bcb.pix') + tlv('01', chave);
+
+  // Campo 62 (additional data) tem sub-TLV 05 = txid
+  const additionalData = tlv('05', txid || '***');
+
+  // Monta payload sem o CRC16 (campo 63)
+  let payload = '';
+  payload += tlv('00', '01');                    // Payload Format Indicator
+  payload += tlv('01', '11');                    // Point of Initiation Method (11 = estático)
+  payload += tlv('26', merchantAccount);         // Merchant Account Information
+  payload += tlv('52', '0000');                  // MCC (genérico)
+  payload += tlv('53', '986');                   // Currency (BRL)
+  if (valor && valor > 0) {
+    payload += tlv('54', valor.toFixed(2));      // Amount (apenas se > 0)
+  }
+  payload += tlv('58', 'BR');                    // Country Code
+  payload += tlv('59', asciiOnly(nome).slice(0, 25));  // Merchant Name (máx 25)
+  payload += tlv('60', asciiOnly(cidade).slice(0, 15)); // Merchant City (máx 15)
+  payload += tlv('62', additionalData);          // Additional Data
+
+  // Adiciona o campo 63 com "0000" placeholder para calcular CRC
+  const payloadForCrc = payload + '6304';
+
+  // CRC16-CCITT-FALSE (poly 0x1021, init 0xFFFF, no reflect, xorout 0x0000)
+  let crc = 0xFFFF;
+  for (let i = 0; i < payloadForCrc.length; i++) {
+    crc ^= payloadForCrc.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      if (crc & 0x8000) crc = (crc << 1) ^ 0x1021;
+      else crc = crc << 1;
+    }
+    crc &= 0xFFFF;
+  }
+  const crcHex = crc.toString(16).toUpperCase().padStart(4, '0');
+
+  return payload + '6304' + crcHex;
+}
+
 // Helpers de data local (não UTC) para evitar erro de dia/mês após 21h no Brasil (UTC-3)
 const hojeISO = () => {
   const d = new Date();
@@ -1275,6 +1325,26 @@ async function ajustes() {
       </label>
     </div>
 
+    <!-- Configuração Pix (para BR Code "copia e cola") -->
+    <p class="section-label">Configuração Pix</p>
+    <div class="group">
+      <label class="cell">
+        <span class="grow">
+          <span class="field-label">Nome no Pix</span>
+          <input id="pixNome" class="field bold" value="${esc(localStorage.pixNome || '')}" placeholder="Nome do recebedor (máx. 25 chars)" maxlength="25">
+        </span>
+        <button type="button" class="pill accent" data-a="spixnome">Salvar</button>
+      </label>
+      <label class="cell">
+        <span class="grow">
+          <span class="field-label">Cidade</span>
+          <input id="pixCidade" class="field bold" value="${esc(localStorage.pixCidade || '')}" placeholder="Cidade (máx. 15 chars)" maxlength="15">
+        </span>
+        <button type="button" class="pill accent" data-a="spixcidade">Salvar</button>
+      </label>
+    </div>
+    <p class="footnote">Usados para gerar o código Pix "copia e cola" (BR Code EMV) nas cobranças. O nome e a cidade devem conter apenas letras sem acento.</p>
+
     <!-- Aparência -->
     <p class="section-label">Aparência</p>
     <div class="group">
@@ -1386,12 +1456,13 @@ async function parcelas() {
   const ms = await meses();
 
   // Busca todos os lançamentos com info de parcelas/recorrência
+  // COALESCE garante que linhas antigas (NULL) sejam tratadas corretamente
   const rows = (await q(`
     SELECT l.*, f.mes_referencia, f.banco_id, b.nome banco, f.data_vencimento
     FROM lancamentos l
     JOIN faturas f ON f.id = l.fatura_id
     JOIN bancos b ON b.id = f.banco_id
-    WHERE l.n_parcelas IS NOT NULL OR l.recorrente = 1
+    WHERE l.n_parcelas IS NOT NULL OR COALESCE(l.recorrente, 0) = 1
     ORDER BY l.grupo_parcela_id, f.mes_referencia, l.id
   `)).rows;
 
@@ -1557,12 +1628,13 @@ async function verGrupo(grupoData) {
     }));
   } else {
     // Recorrente: busca todos recorrentes do banco e filtra por descrição normalizada em JS
+    // COALESCE para tratar linhas antigas onde recorrente é NULL
     const rows = (await q(`
       SELECT l.*, f.mes_referencia, f.data_vencimento, f.banco_id
       FROM lancamentos l
       JOIN faturas f ON f.id = l.fatura_id
       JOIN bancos b ON b.id = f.banco_id
-      WHERE b.nome = ? AND l.recorrente = 1
+      WHERE b.nome = ? AND COALESCE(l.recorrente, 0) = 1
       ORDER BY f.mes_referencia
     `, [banco])).rows;
     const targetNorm = norm(descricao_base);
@@ -1957,7 +2029,7 @@ async function show(t) {
     JOIN rateio_lancamento r ON r.lancamento_id = l.id
     WHERE f.banco_id = (SELECT id FROM bancos WHERE nome = ?)
     AND f.mes_referencia = ?
-    AND l.recorrente = 1
+    AND COALESCE(l.recorrente, 0) = 1
   `, [p.banco, mesAnterior])).rows;
 
   // Filtra os que NÃO têm correspondência na importação atual
@@ -2165,11 +2237,38 @@ function renderRateio(Ps, Rt, hint) {
 // Modal de Cobrança via Pix (Screen 11 Mockup)
 function modalCobranca(a, mes) {
   const txt = cobrancaTexto(a, mes);
+  const chave = a[0]?.chave_pix;
+  const total = a.filter(x => !x.pago).reduce((s, x) => s + x.v, 0);
+  const pixNome = localStorage.pixNome || a[0]?.nome || 'Pagador';
+  const pixCidade = localStorage.pixCidade || 'Brasil';
+  // Gera txid baseado na pessoa + mês (máx 25 chars)
+  const txid = (a[0]?.pid ? `p${a[0].pid}` : 'c') + mes.replace('-', '');
+
+  let emv = '';
+  if (chave) {
+    emv = pixEmv({ chave, nome: pixNome, cidade: pixCidade, valor: total, txid });
+  }
+
   openSheet(`
     <h2>Cobrança via Pix</h2>
     <p class="footnote" style="text-align:center;margin-top:0">Pronto para enviar por WhatsApp, iMessage ou outro app.</p>
-    
+
     <div class="pix-preview-card">${esc(txt)}</div>
+
+    ${chave ? `
+      <div style="margin-top:16px;padding:12px;background:var(--surface);border-radius:var(--radius-lg)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span class="bold">Código Pix (copia e cola)</span>
+          <span class="pill accent">${ICO.copy} BR Code EMV</span>
+        </div>
+        <div style="font-family:monospace;font-size:12px;word-break:break-all;background:var(--bg);padding:8px;border-radius:6px;min-height:40px" id="pixEmvCode">${esc(emv)}</div>
+        <div class="actions" style="margin-top:8px">
+          <button type="button" class="btn secondary" data-a="copyemv" data-txt="${encodeURIComponent(emv)}">
+            ${ICO.copy} Copiar código Pix
+          </button>
+        </div>
+      </div>
+    ` : ''}
 
     <div class="actions">
       <button type="button" class="btn primary" data-a="sharetext" data-txt="${encodeURIComponent(txt)}">
@@ -2305,6 +2404,16 @@ const A = {
       localStorage.userName = n;
       toast('Nome atualizado');
     }
+  },
+  spixnome: () => {
+    const n = $('#pixNome')?.value.trim();
+    localStorage.pixNome = n;
+    toast('Nome Pix salvo');
+  },
+  spixcidade: () => {
+    const c = $('#pixCidade')?.value.trim();
+    localStorage.pixCidade = c;
+    toast('Cidade Pix salva');
   },
   paga: async d => {
     const f = (await q('SELECT pago FROM faturas WHERE id = ?', [d.id])).rows[0];
@@ -2485,6 +2594,11 @@ const A = {
     const txt = decodeURIComponent(d.txt);
     await navigator.clipboard.writeText(txt);
     toast('Texto da cobrança copiado');
+  },
+  copyemv: async d => {
+    const txt = decodeURIComponent(d.txt);
+    await navigator.clipboard.writeText(txt);
+    toast('Código Pix copiado');
   },
   copypix: async d => {
     const p = (await q('SELECT chave_pix FROM pessoas WHERE id = ?', [d.id])).rows[0];
