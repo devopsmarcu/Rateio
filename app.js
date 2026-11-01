@@ -1331,6 +1331,10 @@ async function ajustes() {
         <span class="grow bold">Exportar backup (.sqlite3)</span>
         <span class="chev">${ICO.chev}</span>
       </button>
+      <button type="button" class="cell pressable" data-a="imp_sqlite">
+        <span class="grow bold">Restaurar backup (.sqlite3)</span>
+        <span class="chev">${ICO.chev}</span>
+      </button>
       <div class="cell">
         <div class="grow">
           <div class="item-main">
@@ -2929,6 +2933,41 @@ const A = {
     }).click();
     setTimeout(() => URL.revokeObjectURL(u), 9000);
     toast('Backup .sqlite3 exportado');
+  },
+  imp_sqlite: async () => {
+    const ok = await confirmUI(
+      'Restaurar backup',
+      '⚠️ ATENÇÃO: Esta ação substituirá TODOS os dados atuais (faturas, lançamentos, pessoas, rateios) pelo conteúdo do arquivo de backup. Esta ação é IRREVERSÍVEL.',
+      'Confirmar restauração',
+      1
+    );
+    if (!ok) return;
+    closeSheet();
+    const input = $('#fl_sqlite');
+    if (!input) return toast('Erro: input de arquivo não encontrado');
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      input.value = '';
+      if (!file) return;
+      if (!file.name.endsWith('.sqlite3')) return toast('Selecione um arquivo .sqlite3 válido');
+      try {
+        const buffer = await file.arrayBuffer();
+        const result = await call('restore', buffer);
+        if (result?.ok) {
+          toast('Backup restaurado com sucesso! Recarregando...');
+          // Recarrega completamente o estado
+          S.fat = null;
+          S.pessoa = null;
+          S.imp = null;
+          await go('inicio');
+        } else {
+          toast('Erro ao restaurar: ' + (result?.err || 'Erro desconhecido'));
+        }
+      } catch (e) {
+        toast('Erro ao restaurar: ' + e.message);
+      }
+    };
+    input.click();
   },
   vergrupo: d => {
     const grupo = JSON.parse(d.grupo);
