@@ -955,6 +955,30 @@ function preview(imp) {
         ${(p.bancos || []).map(b => `<option value="${esc(b.nome)}">`).join('')}
       </datalist>
 
+      ${p.recorrentesSugeridos && p.recorrentesSugeridos.length > 0 ? `
+        <!-- Recorrentes do mês anterior não encontrados na importação -->
+        <p class="section-label" style="margin-top:16px">Assinaturas do mês anterior não importadas</p>
+        <div class="group">
+          ${p.recorrentesSugeridos.map((r, idx) => `
+            <div class="cell">
+              <div class="grow">
+                <div class="item-main">
+                  <span class="desc">${esc(r.descricao)}</span>
+                  <span class="money">${R(r.valor)}</span>
+                </div>
+                <div class="item-meta sm mut">
+                  <span class="pill accent">${ICO.star} Recorrente do mês anterior</span>
+                </div>
+              </div>
+              <button type="button" class="btn secondary sm" data-a="addrec" data-idx="${idx}" style="margin-left:8px">
+                ${ICO.plus} Adicionar
+              </button>
+            </div>
+          `).join('')}
+        </div>
+        <p class="footnote" style="margin:8px 16px 0">Toque em "Adicionar" para incluir o lançamento com o mesmo rateio do mês anterior.</p>
+      ` : ''}
+
       <div class="actions">
         <button type="button" class="btn primary" data-a="impstep" data-n="4">Continuar</button>
       </div>`;
@@ -1351,9 +1375,310 @@ async function ajustes() {
 }
 
 // ==========================================================================
+// Tela: Parcelas (Projeção de parcelas futuras e recorrências)
+// ==========================================================================
+async function parcelas() {
+  overlay(0);
+  const ms = await meses();
+
+  // Busca todos os lançamentos com info de parcelas/recorrência
+  const rows = (await q(`
+    SELECT l.*, f.mes_referencia, f.banco_id, b.nome banco, f.data_vencimento
+    FROM lancamentos l
+    JOIN faturas f ON f.id = l.fatura_id
+    JOIN bancos b ON b.id = f.banco_id
+    WHERE l.n_parcelas IS NOT NULL OR l.recorrente = 1
+    ORDER BY l.grupo_parcela_id, f.mes_referencia, l.id
+  `)).rows;
+
+  if (!rows.length) {
+    return `
+      <div class="page-header">
+        <div class="brand-greeting">
+          <span class="brand-sub">Projeção</span>
+          <h1 class="large-title">Parcelas & Recorrências</h1>
+        </div>
+      </div>
+      ${empty(
+        'Nenhuma parcela ou recorrência',
+        'Importe faturas com compras parceladas ou marque lançamentos como assinatura mensal.',
+        ''
+      )}`;
+  }
+
+  // Agrupa por grupo_parcela_id (para parcelados) ou por descrição normalizada (para recorrentes)
+  const grupos = new Map();
+  for (const r of rows) {
+    const key = r.grupo_parcela_id || `rec:${norm(r.descricao)}:${r.banco_id}`;
+    if (!grupos.has(key)) {
+      grupos.set(key, {
+        grupo_parcela_id: r.grupo_parcela_id,
+        recorrente: !!r.recorrente,
+        banco: r.banco,
+        banco_id: r.banco_id,
+        descricao_base: r.descricao,
+        parcelas: [],
+        mes_inicio: r.mes_referencia,
+        valor_parcela: r.valor,
+        n_parcelas: r.n_parcelas
+      });
+    }
+    grupos.get(key).parcelas.push({
+      mes: r.mes_referencia,
+      parcela_atual: r.parcela_atual,
+      valor: r.valor,
+      fatura_id: r.fatura_id,
+      lancamento_id: r.id,
+      data_vencimento: r.data_vencimento
+    });
+  }
+
+  // Ordena parcelas dentro de cada grupo por mês
+  for (const g of grupos.values()) {
+    g.parcelas.sort((a, b) => a.mes.localeCompare(b.mes));
+  }
+
+  // Converte para array e ordena: primeiro parcelados com parcelas restantes, depois recorrentes
+  const gruposArray = [...grupos.values()].sort((a, b) => {
+    // Prioriza grupos com parcelas futuras
+    const aFuturo = a.parcelas.some(p => p.mes > S.mes) || (a.recorrente && a.parcelas.every(p => p.mes <= S.mes));
+    const bFuturo = b.parcelas.some(p => p.mes > S.mes) || (b.recorrente && b.parcelas.every(p => p.mes <= S.mes));
+    if (aFuturo && !bFuturo) return -1;
+    if (!aFuturo && bFuturo) return 1;
+    return a.mes_inicio.localeCompare(b.mes_inicio);
+  });
+
+  const userName = localStorage.userName || 'Usuario';
+
+  return `
+    <div class="page-header">
+      <div class="brand-greeting">
+        <span class="brand-sub">Projeção</span>
+        <h1 class="large-title">Parcelas & Recorrências</h1>
+      </div>
+      ${monthSel(ms)}
+    </div>
+
+    ${navigator.onLine ? '' : '<div class="offline-bar">Sem conexão. Funções locais continuam disponíveis.</div>'}
+
+    <p class="section-label" style="margin-top:16px">Compras parceladas</p>
+    ${renderParcelasGrupos(gruposArray.filter(g => !g.recorrente), 'parcelado')}
+
+    <p class="section-label" style="margin-top:16px">Assinaturas mensais (recorrentes)</p>
+    ${renderParcelasGrupos(gruposArray.filter(g => g.recorrente), 'recorrente')}
+  `;
+}
+
+function renderParcelasGrupos(grupos, tipo) {
+  if (!grupos.length) {
+    return `<div class="group"><div class="cell mut sm">${tipo === 'parcelado' ? 'Nenhuma compra parcelada encontrada.' : 'Nenhuma assinatura recorrente cadastrada.'}</div></div>`;
+  }
+
+  return `
+    <div class="group">
+      ${grupos.map(g => {
+        const parcelasJaImportadas = g.parcelas.filter(p => p.mes <= S.mes);
+        const parcelasFuturas = g.parcelas.filter(p => p.mes > S.mes);
+        const totalParcelas = g.n_parcelas || parcelasJaImportadas.length + parcelasFuturas.length;
+        const parcelasRestantes = totalParcelas - parcelasJaImportadas.length;
+        const valorTotalComprometido = parcelasFuturas.reduce((s, p) => s + p.valor, 0);
+        const valorParcela = g.valor_parcela || (parcelasJaImportadas[0]?.valor || 0);
+
+        // Para recorrentes, mostra "Próximo mês" se não houver no mês atual
+        const temNoMesAtual = g.parcelas.some(p => p.mes === S.mes);
+        const proximoMes = temNoMesAtual ? 'Neste mês' : (parcelasFuturas[0] ? `A partir de ${mesLabel(parcelasFuturas[0].mes)}` : '—');
+
+        return `
+          <div class="cell pressable" data-a="vergrupo" data-grupo="${esc(JSON.stringify({
+            grupo_parcela_id: g.grupo_parcela_id,
+            recorrente: g.recorrente,
+            banco: g.banco,
+            descricao_base: g.descricao_base,
+            n_parcelas: totalParcelas,
+            valor_parcela: valorParcela
+          }))}" role="button" tabindex="0">
+            <div class="grow">
+              <div class="item-main">
+                <span class="desc ellipsis">${esc(g.descricao_base)}</span>
+                <span class="money">${R(valorParcela)}${tipo === 'parcelado' ? ` × ${totalParcelas}` : '/mês'}</span>
+              </div>
+              <div class="item-meta sm mut">
+                <span>${esc(g.banco)}</span>
+                ${tipo === 'parcelado' ? `
+                  <span>· ${parcelasJaImportadas.length}/${totalParcelas} importadas</span>
+                  ${parcelasRestantes > 0 ? `<span class="warn">· ${parcelasRestantes} restante${parcelasRestantes > 1 ? 's' : ''}</span>` : ''}
+                ` : `
+                  <span>· ${proximoMes}</span>
+                `}
+              </div>
+              <div class="item-meta">
+                ${tipo === 'parcelado' && parcelasRestantes > 0 ? `
+                  <span class="pill warn">Futuro: ${R(valorTotalComprometido)}</span>
+                ` : ''}
+                ${tipo === 'recorrente' ? `
+                  <span class="pill accent">${ICO.star} Recorrente</span>
+                ` : ''}
+              </div>
+            </div>
+            <span class="chev">${ICO.chev}</span>
+          </div>
+        `;
+      }).join('')}
+    </div>`;
+}
+
+// Handler para ver detalhes do grupo
+async function verGrupo(grupoData) {
+  // Busca todas as parcelas do grupo (incluindo meses futuros não importados)
+  const grupo = JSON.parse(grupoData);
+  const { grupo_parcela_id, recorrente, banco, descricao_base, n_parcelas, valor_parcela } = grupo;
+
+  let parcelas;
+  if (grupo_parcela_id) {
+    const rows = (await q(`
+      SELECT l.*, f.mes_referencia, f.data_vencimento, f.banco_id
+      FROM lancamentos l
+      JOIN faturas f ON f.id = l.fatura_id
+      WHERE l.grupo_parcela_id = ?
+      ORDER BY f.mes_referencia
+    `, [grupo_parcela_id])).rows;
+    parcelas = rows.map(r => ({
+      mes: r.mes_referencia,
+      parcela_atual: r.parcela_atual,
+      valor: r.valor,
+      fatura_id: r.fatura_id,
+      lancamento_id: r.id,
+      data_vencimento: r.data_vencimento,
+      importado: true
+    }));
+  } else {
+    // Recorrente: busca todos recorrentes do banco e filtra por descrição normalizada em JS
+    const rows = (await q(`
+      SELECT l.*, f.mes_referencia, f.data_vencimento, f.banco_id
+      FROM lancamentos l
+      JOIN faturas f ON f.id = l.fatura_id
+      JOIN bancos b ON b.id = f.banco_id
+      WHERE b.nome = ? AND l.recorrente = 1
+      ORDER BY f.mes_referencia
+    `, [banco])).rows;
+    const targetNorm = norm(descricao_base);
+    parcelas = rows
+      .filter(r => norm(r.descricao) === targetNorm)
+      .map(r => ({
+        mes: r.mes_referencia,
+        parcela_atual: null,
+        valor: r.valor,
+        fatura_id: r.fatura_id,
+        lancamento_id: r.id,
+        data_vencimento: r.data_vencimento,
+        importado: true
+      }));
+  }
+
+  // Identifica meses faltantes (para parcelados) ou próximo mês (para recorrentes)
+  const mesesImportados = new Set(parcelas.map(p => p.mes));
+  const todosMeses = [];
+  const mesAtualNum = S.mes;
+
+  if (grupo_parcela_id && n_parcelas) {
+    // Para parcelados: gera lista de todos os meses esperados
+    const primeira = parcelas[0];
+    if (primeira) {
+      const [ano, mes] = primeira.mes.split('-').map(Number);
+      for (let i = 0; i < n_parcelas; i++) {
+        let m = mes + i;
+        let a = ano;
+        while (m > 12) { m -= 12; a++; }
+        const mesStr = `${a}-${String(m).padStart(2, '0')}`;
+        todosMeses.push({
+          mes: mesStr,
+          importado: mesesImportados.has(mesStr),
+          parcela_atual: i + 1,
+          valor: valor_parcela,
+          data_vencimento: parcelas.find(p => p.mes === mesStr)?.data_vencimento
+        });
+      }
+    }
+  } else if (recorrente) {
+    // Para recorrentes: mostra mês atual + próximos 6 meses
+    const [ano, mes] = mesAtualNum.split('-').map(Number);
+    for (let i = 0; i <= 6; i++) {
+      let m = mes + i;
+      let a = ano;
+      while (m > 12) { m -= 12; a++; }
+      const mesStr = `${a}-${String(m).padStart(2, '0')}`;
+      todosMeses.push({
+        mes: mesStr,
+        importado: mesesImportados.has(mesStr),
+        parcela_atual: null,
+        valor: valor_parcela,
+        data_vencimento: parcelas.find(p => p.mes === mesStr)?.data_vencimento
+      });
+    }
+  }
+
+  const mesLabelFull = m => {
+    const [y, mo] = m.split('-');
+    const str = new Date(+y, +mo - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  };
+
+  return `
+    ${top(
+      grupo_parcela_id ? 'Detalhes da Compra Parcelada' : 'Detalhes da Assinatura',
+      backBtn('parcelas', 'Parcelas')
+    )}
+    <div class="hero">
+      <div class="bold" style="font-size:18px">${esc(descricao_base)}</div>
+      <div class="sm mut" style="margin-top:4px">${esc(banco)}</div>
+      <div class="money-xl" style="margin-top:8px">${R(valor_parcela)}${grupo_parcela_id ? ` × ${n_parcelas}` : '/mês'}</div>
+      <div class="item-meta" style="justify-content:center;margin-top:10px">
+        ${grupo_parcela_id ? `
+          <span class="pill">Total: ${R(valor_parcela * n_parcelas)}</span>
+          <span class="pill ${parcelas.filter(p => p.mes <= S.mes).length === n_parcelas ? 'ok' : 'warn'}">${parcelas.filter(p => p.mes <= S.mes).length}/${n_parcelas} importadas</span>
+        ` : `
+          <span class="pill accent">${ICO.star} Assinatura mensal ativa</span>
+        `}
+      </div>
+    </div>
+
+    <p class="section-label">Cronograma</p>
+    <div class="group">
+      ${todosMeses.map((p, i) => `
+        <div class="cell ${!p.importado && p.mes <= S.mes ? 'bad' : ''}">
+          <div class="grow">
+            <div class="item-main">
+              <span class="bold">${esc(mesLabelFull(p.mes))}</span>
+              <span class="money">${R(p.valor)}</span>
+            </div>
+            <div class="item-meta sm mut">
+              ${p.importado
+                ? `<span class="ok">${ICO.check} Importado</span> ${p.data_vencimento ? `· Vence ${dataCurta(p.data_vencimento)}` : ''}`
+                : p.mes <= S.mes
+                  ? `<span class="bad">${ICO.warn} Não importado — fatura do ${esc(banco)} não encontrada</span>`
+                  : `<span class="mut">${ICO.chev} Previsto${p.data_vencimento ? ` · Vence ${dataCurta(p.data_vencimento)}` : ''}</span>`
+              }
+            </div>
+          </div>
+          ${p.importado && p.lancamento_id ? `<span class="chev">${ICO.chev}</span>` : ''}
+        </div>
+      `).join('')}
+    </div>
+
+    ${!recorrente ? `
+      <div class="actions" style="margin-top:16px">
+        <button type="button" class="btn secondary" data-a="togglerec" data-grupo="${esc(grupoData)}">
+          ${ICO.star} Marcar como assinatura mensal
+        </button>
+      </div>
+    ` : ''}
+  `;
+}
+
+// ==========================================================================
 // Roteador e Navegação
 // ==========================================================================
-const V = { inicio, faturas, pessoas, ajustes };
+const V = { inicio, faturas, parcelas, pessoas, ajustes };
 
 async function go(t) {
   if (t) {
@@ -1514,23 +1839,41 @@ function parseFat(t) {
 
   const soma = itens.reduce((a, i) => a + i.v, 0);
   const total = tot ? num(tot[1]) : soma;
+  // Adiciona info de parcelas aos itens
+  const itensComParc = itens.map(i => {
+    const pc = parc(i.s);
+    return {
+      ...i,
+      v: i.v.toFixed(2),
+      n_parcelas: pc.t || null,
+      parcela_atual: pc.n || null,
+      // grupo_parcela_id será preenchido no savefat (novo) ou pelo casar (existente)
+      grupo_parcela_id: null
+    };
+  });
   return {
     banco,
     total: total.toFixed(2),
     soma: soma.toFixed(2),
     venc: vi,
     mes: ve ? `${ve[0]}-${p2(ve[1])}` : mesAtual(),
-    itens: itens.map(i => ({ ...i, v: i.v.toFixed(2) }))
+    itens: itensComParc
   };
 }
 
 const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
 
+// Gera UUID v4 simples para grupo de parcelas
+const genUUID = () => crypto.randomUUID?.() || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+  const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+  return v.toString(16);
+});
+
 function parc(d) {
   const m = d.match(/^(.*?)\s*-?\s*parcela\s+(\d+)\s*(?:\/|de)\s*(\d+)\s*$/i) ||
             d.match(/^(.*?)\s+(\d{2})\/(\d{2})$/) ||
             d.match(/^(.*?)\s*PARC\s*(\d{2})\/(\d{2})$/i);
-  return m ? { k: norm(m[1]), n: +m[2], t: +m[3] } : { k: norm(d), n: 0, t: 0 };
+  return m ? { k: norm(m[1]), n: +m[2], t: +m[3], raw: `${m[2]}/${m[3]}` } : { k: norm(d), n: 0, t: 0, raw: '' };
 }
 
 // Regra de ajuste financeiro de centavos na última pessoa
@@ -1545,7 +1888,7 @@ async function casar(banco, mes, its) {
   if (!b) return its.map(() => null);
 
   const rows = (await q(`
-    SELECT l.id lid, l.descricao d, l.valor v, r.pessoa_id pid, r.porcentagem pc, r.valor_fracao vf, p.nome
+    SELECT l.id lid, l.descricao d, l.valor v, l.grupo_parcela_id gpid, l.recorrente rec, r.pessoa_id pid, r.porcentagem pc, r.valor_fracao vf, p.nome
     FROM lancamentos l
     JOIN faturas f ON f.id = l.fatura_id
     JOIN rateio_lancamento r ON r.lancamento_id = l.id
@@ -1557,7 +1900,7 @@ async function casar(banco, mes, its) {
   const H = new Map();
   for (const r of rows) {
     let h = H.get(r.lid);
-    if (!h) H.set(r.lid, h = { ...parc(r.d), v: r.v, sh: [] });
+    if (!h) H.set(r.lid, h = { ...parc(r.d), v: r.v, sh: [], grupo_parcela_id: r.gpid, recorrente: !!r.rec });
     h.sh.push({ pid: r.pid, nome: r.nome, pct: r.pc || (r.v ? (r.vf / r.v) * 100 : 0) });
   }
 
@@ -1565,7 +1908,7 @@ async function casar(banco, mes, its) {
   return its.map(i => {
     const c = parc(i.s);
     const h = L.find(h => h.k === c.k && (c.n ? h.n && h.t === c.t && h.n < c.n : !h.n && Math.abs(h.v - i.v) < 0.005));
-    return h ? { sh: h.sh, info: c.n ? `parcela ${c.n}/${c.t}` : 'recorrente' } : null;
+    return h ? { sh: h.sh, info: c.n ? `parcela ${c.n}/${c.t}` : 'recorrente', grupo_parcela_id: h.grupo_parcela_id, recorrente: h.recorrente } : null;
   });
 }
 
@@ -1582,7 +1925,52 @@ async function show(t) {
     const tx = $('#tx');
     if (tx) tx.value = t;
   }
-  p.m = await casar(p.banco, p.mes, p.itens.map(i => ({ s: i.s, v: +i.v })));
+  const casarResult = await casar(p.banco, p.mes, p.itens.map(i => ({ s: i.s, v: +i.v })));
+  // Merge casar results (grupo_parcela_id, recorrente) into preview items
+  p.itens.forEach((item, i) => {
+    if (casarResult[i]) {
+      item.grupo_parcela_id = casarResult[i].grupo_parcela_id || genUUID();
+      item.recorrente = casarResult[i].recorrente || false;
+    } else if (item.n_parcelas && !item.grupo_parcela_id) {
+      // Nova compra parcelada: gera novo grupo
+      item.grupo_parcela_id = genUUID();
+    }
+  });
+
+  // Detecta recorrentes do mês anterior que não estão na importação atual
+  // Busca lançamentos recorrentes do mesmo banco no mês anterior
+  const mesAnterior = (() => {
+    const [ano, mes] = p.mes.split('-').map(Number);
+    let m = mes - 1, a = ano;
+    if (m === 0) { m = 12; a--; }
+    return `${a}-${String(m).padStart(2, '0')}`;
+  })();
+
+  const recorrentesAnterior = (await q(`
+    SELECT l.*, r.pessoa_id, r.valor_fracao, r.porcentagem, r.pago
+    FROM lancamentos l
+    JOIN faturas f ON f.id = l.fatura_id
+    JOIN rateio_lancamento r ON r.lancamento_id = l.id
+    WHERE f.banco_id = (SELECT id FROM bancos WHERE nome = ?)
+    AND f.mes_referencia = ?
+    AND l.recorrente = 1
+  `, [p.banco, mesAnterior])).rows;
+
+  // Filtra os que NÃO têm correspondência na importação atual
+  const descricoesImportadas = new Set(p.itens.map(i => norm(i.s)));
+  const recorrentesFaltando = recorrentesAnterior
+    .filter(r => !descricoesImportadas.has(norm(r.descricao)))
+    .map(r => ({
+      descricao: r.descricao,
+      valor: r.valor,
+      rateio: { pessoa_id: r.pessoa_id, valor_fracao: r.valor_fracao, porcentagem: r.porcentagem, pago: r.pago }
+    }));
+
+  if (recorrentesFaltando.length > 0) {
+    p.recorrentesSugeridos = recorrentesFaltando;
+  }
+
+  p.m = casarResult;
   S.imp = {
     ...S.imp,
     step: p.itens.length ? 3 : 2,
@@ -1691,6 +2079,7 @@ function rateioRest() {
 function renderRateio(Ps, Rt, hint) {
   const l = S.l, pct = S.rmode === 'p';
   const parc = parcInfo(l.descricao);
+  const isRecorrente = !!l.recorrente;
 
   openSheet(`
     <h2>Rateio de Lançamento</h2>
@@ -1708,6 +2097,17 @@ function renderRateio(Ps, Rt, hint) {
     <div class="seg" style="margin:10px 16px 12px">
       <button type="button" class="${pct ? '' : 'on'}" data-a="rmode" data-k="v">Por valor</button>
       <button type="button" class="${pct ? 'on' : ''}" data-a="rmode" data-k="p">Por porcentagem</button>
+    </div>
+
+    <!-- Toggle Assinatura Mensal -->
+    <div class="group" style="margin:0 16px 12px">
+      <label class="cell" style="padding:8px 0">
+        <span class="grow">
+          <span class="bold">${ICO.star} Assinatura mensal (recorrente)</span>
+          <span class="sm mut">Este lançamento se repetirá todos os meses. O rateio será sugerido automaticamente nas próximas faturas deste banco.</span>
+        </span>
+        <input type="checkbox" id="recToggle" ${isRecorrente ? 'checked' : ''} data-a="togglerecl" style="width:24px;height:24px;accent-color:var(--accent)">
+      </label>
     </div>
 
     <!-- Lista de Participantes -->
@@ -2306,7 +2706,15 @@ const A = {
     if (!nome) return toast('Informe o banco');
     const tot = +p.total, venc = p.venc, mes = p.mes;
     if (!(tot >= 0) || !mes) return toast('Total ou mês inválidos');
-    const its = p.itens.map(i => [i.d, i.s.trim(), +i.v]).filter(i => i[1] && !isNaN(i[2]));
+    // Inclui n_parcelas, parcela_atual, grupo_parcela_id, recorrente, _rateioSugerido
+    const its = p.itens.map(i => [
+      i.d, i.s.trim(), +i.v,
+      i.n_parcelas || null,
+      i.parcela_atual || null,
+      i.grupo_parcela_id || null,
+      i.recorrente ? 1 : 0,
+      i._rateioSugerido || null
+    ]).filter(i => i[1] && !isNaN(i[2]));
 
     let b = (await q('SELECT id FROM bancos WHERE nome = ?', [nome])).rows[0]?.id;
     if (!b) b = (await q('INSERT INTO bancos(nome) VALUES(?)', [nome])).id;
@@ -2318,12 +2726,16 @@ const A = {
     }
 
     const fid = (await q('INSERT INTO faturas(banco_id, mes_referencia, valor_total, data_vencimento) VALUES(?, ?, ?, ?)', [b, mes, tot, venc || null])).id;
-    const rs = await tx(its.map(([d, s, v]) => ['INSERT INTO lancamentos(fatura_id, descricao, valor, data_transacao) VALUES(?, ?, ?, ?)', [fid, s, v, d || null]]));
+    const rs = await tx(its.map(([d, s, v, np, pa, gpi, rec, rsug]) =>
+      ['INSERT INTO lancamentos(fatura_id, descricao, valor, data_transacao, n_parcelas, parcela_atual, grupo_parcela_id, recorrente) VALUES(?, ?, ?, ?, ?, ?, ?, ?)',
+       [fid, s, v, d || null, np, pa, gpi, rec]]
+    ));
 
     let n = 0;
+    const st = [];
     if (p.auto !== false) {
-      const M = await casar(nome, mes, its.map(i => ({ s: i[1], v: i[2] })));
-      const st = [];
+      // Usa o casar result já calculado no preview (p.m) para evitar recalcular
+      const M = p.m;
       M.forEach((m, i) => {
         if (!m) return;
         const lid = rs[i].id, T = Math.round(its[i][2] * 100);
@@ -2335,8 +2747,22 @@ const A = {
         ]));
         if (m.sh.length === 1) st.push(['UPDATE lancamentos SET dono_id = ? WHERE id = ?', [m.sh[0].pid, lid]]);
       });
-      if (st.length) await tx(st);
     }
+    // Aplica rateio sugerido para recorrentes adicionados manualmente
+    its.forEach((item, i) => {
+      if (item[7] && rs[i]) { // _rateioSugerido existe
+        const lid = rs[i].id;
+        const T = Math.round(item[2] * 100);
+        const c = cents(T, [item[7].porcentagem || (item[7].valor_fracao / item[2]) * 100]);
+        st.push([
+          'INSERT INTO rateio_lancamento(lancamento_id, pessoa_id, valor_fracao, porcentagem, pago) VALUES(?, ?, ?, ?, ?)',
+          [lid, item[7].pessoa_id, c[0] / 100, T ? +(c[0] / T * 100).toFixed(4) : 0, item[7].pago || 0]
+        ]);
+        n++;
+      }
+    });
+
+    if (st.length) await tx(st);
 
     // Registra a mensagem como importada (prevenção de duplicidade).
     if (S.imp?.msgKey) oauthService.markImported(S.imp.msgKey);
@@ -2356,6 +2782,15 @@ const A = {
     S.rt = Rt;
     S.ps = Ps;
     renderRateio(Ps, Rt);
+  },
+  togglerecl: async (d, el) => {
+    // Handler para o toggle de recorrência na folha de rateio
+    const novoValor = el.checked ? 1 : 0;
+    await q('UPDATE lancamentos SET recorrente = ? WHERE id = ?', [novoValor, S.l.id]);
+    S.l.recorrente = novoValor;
+    toast(novoValor ? 'Marcado como assinatura mensal' : 'Assinatura mensal removida');
+    // Re-renderiza a folha para atualizar o estado
+    renderRateio(S.ps, S.rt);
   },
   rmode: d => {
     const box = $('#sheet');
@@ -2494,6 +2929,57 @@ const A = {
     }).click();
     setTimeout(() => URL.revokeObjectURL(u), 9000);
     toast('Backup .sqlite3 exportado');
+  },
+  vergrupo: d => {
+    const grupo = JSON.parse(d.grupo);
+    openSheet(verGrupo(grupo));
+  },
+  addrec: d => {
+    const idx = +d.idx;
+    const p = S.imp?.p;
+    const rec = p?.recorrentesSugeridos?.[idx];
+    if (!rec || !p) return;
+    // Adiciona o item à lista de itens da importação
+    p.itens.push({
+      d: '', // data será preenchida depois se necessário
+      s: rec.descricao,
+      v: rec.valor.toFixed(2),
+      n_parcelas: null,
+      parcela_atual: null,
+      grupo_parcela_id: null,
+      recorrente: true,
+      _rateioSugerido: rec.rateio // marca para aplicar rateio ao salvar
+    });
+    p.soma = p.itens.reduce((a, i) => a + (+i.v), 0).toFixed(2);
+    // Remove da lista de sugeridos
+    p.recorrentesSugeridos.splice(idx, 1);
+    go();
+  },
+  togglerec: async d => {
+    const grupo = JSON.parse(d.grupo);
+    const { grupo_parcela_id, banco, descricao_base } = grupo;
+    // Atualiza todos os lançamentos do grupo para recorrente=1
+    if (grupo_parcela_id) {
+      await q('UPDATE lancamentos SET recorrente = 1 WHERE grupo_parcela_id = ?', [grupo_parcela_id]);
+    } else {
+      // Para recorrentes identificados por descrição normalizada + banco
+      // Busca os IDs em JS e atualiza
+      const rows = (await q(`
+        SELECT l.id
+        FROM lancamentos l
+        JOIN faturas f ON f.id = l.fatura_id
+        JOIN bancos b ON b.id = f.banco_id
+        WHERE b.nome = ? AND l.recorrente = 0
+      `, [banco])).rows;
+      const targetNorm = norm(descricao_base);
+      const ids = rows.filter(r => norm(r.descricao) === targetNorm).map(r => r.id);
+      if (ids.length) {
+        await q(`UPDATE lancamentos SET recorrente = 1 WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
+      }
+    }
+    closeSheet();
+    toast('Marcado como assinatura mensal');
+    go();
   }
 };
 
