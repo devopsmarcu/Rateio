@@ -23,7 +23,7 @@ const S = {
   tab: 'inicio',
   fat: null,
   pessoa: null,
-  mes: new Date().toISOString().slice(0, 7),
+  mes: mesAtual(),
   msgs: [],
   g: {},
   l: null,
@@ -57,13 +57,20 @@ const dataCurta = d => {
   return isNaN(x) ? d : x.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 };
 
-const hojeISO = () => new Date().toISOString().slice(0, 10);
+// Helpers de data local (não UTC) para evitar erro de dia/mês após 21h no Brasil (UTC-3)
+const hojeISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const mesAtual = () => hojeISO().slice(0, 7);
 const vencida = (f, hoje = hojeISO()) => !f.pago && f.data_vencimento && f.data_vencimento < hoje;
 const proxVenc = (f, hoje = hojeISO()) => {
   if (f.pago || !f.data_vencimento || f.data_vencimento < hoje) return false;
   const lim = new Date();
   lim.setDate(lim.getDate() + 7);
-  return f.data_vencimento <= lim.toISOString().slice(0, 10);
+  // Usar data local para comparação (não UTC)
+  const limISO = `${lim.getFullYear()}-${String(lim.getMonth() + 1).padStart(2, '0')}-${String(lim.getDate()).padStart(2, '0')}`;
+  return f.data_vencimento <= limISO;
 };
 const diverge = (soma, tot) => Math.abs(+soma - +tot) > 0.05;
 const parcInfo = d => {
@@ -1512,7 +1519,7 @@ function parseFat(t) {
     total: total.toFixed(2),
     soma: soma.toFixed(2),
     venc: vi,
-    mes: ve ? `${ve[0]}-${p2(ve[1])}` : new Date().toISOString().slice(0, 7),
+    mes: ve ? `${ve[0]}-${p2(ve[1])}` : mesAtual(),
     itens: itens.map(i => ({ ...i, v: i.v.toFixed(2) }))
   };
 }
@@ -2483,7 +2490,7 @@ const A = {
     const u = URL.createObjectURL(new Blob([b], { type: 'application/vnd.sqlite3' }));
     Object.assign(document.createElement('a'), {
       href: u,
-      download: `faturas-${new Date().toISOString().slice(0, 10)}.sqlite3`
+      download: `faturas-${hojeISO()}.sqlite3`
     }).click();
     setTimeout(() => URL.revokeObjectURL(u), 9000);
     toast('Backup .sqlite3 exportado');
