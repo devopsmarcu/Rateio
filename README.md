@@ -363,6 +363,137 @@ O projeto pode crescer com melhorias futuras como:
 
 Essas evoluções podem manter a filosofia de privacidade e processamento local, ou ampliar a arquitetura em direção a uma solução mais sofisticada quando necessário.
 
+## Conformidade com Apple HIG (Human Interface Guidelines)
+
+O aplicativo foi desenvolvido seguindo as diretrizes do **Apple Human Interface Guidelines** para oferecer uma experiência nativa de qualidade no iOS, iPadOS e macOS (via Safari/Standalone PWA).
+
+### Principais pontos de conformidade implementados
+
+#### Safe Areas (Áreas Seguras)
+- Suporte completo a `env(safe-area-inset-*)` para notch, Dynamic Island e home indicator
+- Tabbar com padding horizontal e inferior respeitando safe areas
+- Bottom sheets com padding lateral dinâmico
+- Viewport `viewport-fit=cover` sem desabilitar zoom do usuário
+
+#### Touch Targets (Alvos de Toque)
+- **Mínimo de 44pt** (CSS `var(--touch)`) para todos os elementos interativos
+- Botões da tabbar, células, botões de ação, inputs, checkboxes, radio buttons
+- Exceções documentadas para elementos decorativos (badges, ícones, dots)
+
+#### Tab Bar (Barra de Abas)
+- Altura **49pt** conforme especificação HIG
+- Blur backdrop com `backdrop-filter: saturate(180%) blur(20px)`
+- Ícones SF Symbols estilo outline (24pt → 25pt)
+- Estado ativo com cor de acento do sistema (`--accent`)
+- Feedback visual `:active` e `:focus-visible` para acessibilidade
+
+#### Bottom Sheets (Modais Inferiores)
+- Grabber (barra de arraste) visível no topo
+- Swipe-to-dismiss via CSS (`.sheet-root.dragging`)
+- `touch-action: pan-y` para scroll nativo
+- Border-radius 20px nos cantos superiores
+- Max-height 90dvh com scroll interno
+- Safe-area padding inferior
+
+#### Tipografia Semântica (Dynamic Type Ready)
+- Escala completa iOS 17: Large Title (34px) → Caption2 (11px)
+- Pesos semânticos: Regular (400) → Bold (700)
+- Variáveis CSS para fácil manutenção e suporte futuro a Dynamic Type
+- `font-variant-numeric: tabular-nums lining-nums` para valores monetários
+
+#### Sistema de Movimento
+- Curvas de easing padronizadas: `--motion-ease` (cubic-bezier(0.16, 1, 0.3, 1))
+- Durações: fast (150ms), normal (250ms), slow (350ms)
+- **Respeita `prefers-reduced-motion: reduce`** — desabilita todas as animações
+- Transições consistentes em todos os componentes
+
+#### Modo Escuro (Dark Mode)
+- Paleta True OLED Black (`#000000` background)
+- Cores de sistema iOS adaptadas (accent `#0A84FF`, etc.)
+- `color-scheme: dark` no seletor `[data-theme="dark"]`
+- Sombras desabilitadas no modo escuro (conforme HIG)
+
+#### Alto Contraste
+- Suporte a `prefers-contrast: more`
+- Separações e preenchimentos mais opacos
+- Funciona em ambos os temas (light/dark)
+
+#### Acessibilidade (a11y)
+- `:focus-visible` em todos os elementos interativos
+- `role="dialog"`, `aria-modal="true"` nas sheets
+- `aria-live="polite"` para toasts
+- `aria-label` na tabbar
+- Textos com contraste adequado (WCAG AA)
+- Sem `user-scalable=no` — zoom por pinch permitido
+
+#### Cores do Sistema iOS
+- `--accent: #007AFF` (light) / `#0A84FF` (dark)
+- `--ok: #34C759` / `#30D158`
+- `--warn: #FF9500` / `#FFD60A`
+- `--bad: #FF3B30` / `#FF453A`
+- `--fill`, `--fill-secondary`, `--fill-tertiary` para backgrounds hierárquicos
+- `--separator` / `--hairline` para divisórias (0.5px via rgba)
+
+### Variáveis CSS Principais (Design Tokens)
+
+```css
+:root {
+  /* Touch */
+  --touch: 44px;
+  
+  /* Safe Areas */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  
+  /* Typography */
+  --text-large-title: 34px;
+  --text-title1: 28px;
+  --text-title2: 22px;
+  --text-title3: 20px;
+  --text-headline: 17px;
+  --text-body: 17px;
+  --text-callout: 16px;
+  --text-subheadline: 15px;
+  --text-footnote: 13px;
+  --text-caption1: 12px;
+  --text-caption2: 11px;
+  
+  /* Weights */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  
+  /* Motion */
+  --motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --motion-duration-fast: 150ms;
+  --motion-duration-normal: 250ms;
+  --motion-duration-slow: 350ms;
+}
+```
+
+### Validação no Dispositivo
+
+Para testar a conformidade no iPhone/iPad:
+
+1. **Instale como PWA** (Compartilhar → "Adicionar à Tela de Início")
+2. Verifique:
+   - Tabbar não coberta pelo home indicator
+   - Sheets não cobertas pelo notch/Dynamic Island
+   - Toque em qualquer botão — área mínima 44×44pt
+   - Pinch-to-zoom funciona (acessibilidade)
+   - Modo escuro automático (Configurações → Aparência)
+   - Reduzir movimento (Ajustes → Acessibilidade → Movimento)
+   - Alto contraste (Ajustes → Acessibilidade → Tela e Tamanho do Texto)
+   - VoiceOver — navegação por foco visível
+
+---
+
+> **Nota**: Esta implementação é puramente CSS/HTML/comportamental. Não houve alterações na lógica de negócio, SQL, Web Workers ou estrutura do `app.js`.
+
 ## Resumo executivo
 
 Rateio de Faturas é um aplicativo para centralizar faturas, organizar despesas compartilhadas, calcular rateios e acompanhar pagamentos entre participantes.
