@@ -1,5 +1,5 @@
 /**
- * test_oauth.mjs — Suite de testes para oauth-service.js
+ * test_oauth.mjs — Suite de testes para src/integrations/oauth/service.js
  * Execução: node test_oauth.mjs
  */
 import { webcrypto } from 'node:crypto';
@@ -76,8 +76,8 @@ function makeFetchResp(body, status = 200, headers = {}) {
   };
 }
 
-const { OAUTH_CONFIG, getRedirectUri, ADMIN_NOT_CONFIGURED_MSG } = await import('./oauth-config.js');
-const { OAuthService, OAuthError, redact }                     = await import('./oauth-service.js');
+const { OAUTH_CONFIG, getRedirectUri, ADMIN_NOT_CONFIGURED_MSG } = await import('./src/integrations/oauth/config.js');
+const { OAuthService, OAuthError, redact }                     = await import('./src/integrations/oauth/service.js');
 
 // ---------------------------------------------------------------------------
 // Grupo 1: Utilitarios e Configuracao

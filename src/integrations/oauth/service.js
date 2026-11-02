@@ -14,7 +14,7 @@
 //  - Tokens e conteúdo de e-mail nunca vão para logs.
 //  - A desconexão limpa todo o estado local (não revoga autorizações remotas).
 
-import { OAUTH_CONFIG, getRedirectUri, ADMIN_NOT_CONFIGURED_MSG } from './oauth-config.js';
+import { OAUTH_CONFIG, getRedirectUri, ADMIN_NOT_CONFIGURED_MSG } from './config.js';
 
 const RELAY_CHANNEL = 'rateio-oauth';
 const IMPORTED_KEY = 'rateio_imported_msgs';

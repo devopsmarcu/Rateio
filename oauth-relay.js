@@ -14,7 +14,7 @@
 //
 // Nenhuma credencial, senha ou dado de fatura é processado aqui.
 
-import { OAUTH_CONFIG, ADMIN_NOT_CONFIGURED_MSG } from './oauth-config.js';
+import { OAUTH_CONFIG, ADMIN_NOT_CONFIGURED_MSG } from './src/integrations/oauth/config.js';
 
 const RELAY_CHANNEL = 'rateio-oauth';
 

@@ -154,6 +154,40 @@ A proposta também inclui uma abordagem PWA para permitir:
 - melhor experiência móvel;
 - funcionamento parcial offline.
 
+#### Organização do código (Feature-Driven)
+
+O código-fonte fica em `src/`, separado por **domínio de funcionalidade** (feature), com uma camada de infraestrutura compartilhada em `core/`. Cada feature concentra suas próprias telas e regras; só o que é transversal (estado, formatação, UI, banco) vive em `core/`.
+
+```text
+src/
+├── main.js                    # Bootstrap (tema, OAuth, Service Worker, COOP/COEP),
+│                              # roteador (go), delegação de eventos e mapa de ações (A)
+├── core/                      # Infraestrutura compartilhada
+│   ├── state.js               # Estado global da aplicação (S)
+│   ├── format.js              # Números, moeda e datas (esc, R, f2, hojeISO, vencida, …)
+│   ├── pix.js                 # Pix BR Code (EMV) e utilitários (genUUID, …)
+│   ├── theme.js               # Tema claro/escuro/sistema (initTheme)
+│   ├── ui.js                  # Componentes de UI (ICO, openSheet, toast, top, confirmUI, …)
+│   ├── banco.js               # Metadados de bancos, vencimento e células de fatura
+│   └── db.js                  # Cliente do Web Worker SQLite (initDb, q, tx, call)
+├── features/                  # Uma unidade por funcionalidade
+│   ├── inicio.js              # Tela Início (resumo do mês)
+│   ├── faturas.js             # Lista de faturas e detalhe da fatura
+│   ├── parcelas.js            # Projeção de parcelas futuras e recorrências
+│   ├── pessoas.js             # Cadastro de pessoas e cobrança (Pix / código EMV)
+│   ├── ajustes.js             # Ajustes, backup/restauração e integrações
+│   ├── rateio.js              # Núcleo do rateio (casamento, cálculo e interface)
+│   └── importacao/
+│       ├── parse.js           # Extração de texto/PDF e parsing de faturas
+│       └── view.js            # Telas de importação (arquivo, texto, Gmail, Outlook)
+└── integrations/
+    └── oauth/
+        ├── config.js          # Client IDs (editar aqui) e avisos administrativos
+        └── service.js         # OAuth2 + Gmail API e Microsoft Graph (MSAL)
+```
+
+Na raiz permanecem apenas os arquivos que dependem de **caminhos estáveis**: `index.html` (entrypoint), `sw.js` (escopo do Service Worker), `manifest.json`, `db-worker.js` (worker do SQLite), `styles.css`, os ícones e a ponte OAuth (`oauth.html` e `oauth-relay.js`, servidos **sem** COOP/COEP). Ainda na raiz ficam `lib/` (pdf.js) e `sqlite/` (SQLite WASM/OPFS).
+
 #### Banco local
 
 O projeto foi pensado para usar SQLite diretamente no navegador. Isso permite manter dados estruturados sem depender de um servidor de banco de dados próprio.
@@ -212,7 +246,7 @@ e importe faturas diretamente. O usuário **não** precisa criar projetos no Goo
 Microsoft Entra, informar Client IDs, configurar APIs ou executar qualquer procedimento técnico.
 
 Toda a configuração é feita **uma única vez** pelo responsável pelo aplicativo, em
-[oauth-config.js](oauth-config.js). Não existe — e não deve existir — nenhuma tela de configuração de
+[src/integrations/oauth/config.js](src/integrations/oauth/config.js). Não existe — e não deve existir — nenhuma tela de configuração de
 credenciais para o usuário comum.
 
 ### Como funciona para o usuário
@@ -227,7 +261,8 @@ um aviso administrativo, sem instruções técnicas.
 
 ### Configuração administrativa (responsável pelo aplicativo)
 
-Os Client IDs reais são definidos **somente no código**, editando [oauth-config.js](oauth-config.js).
+Os Client IDs reais são definidos **somente no código**, editando
+[src/integrations/oauth/config.js](src/integrations/oauth/config.js).
 Consulte os comentários de [oauth-config.example.js](oauth-config.example.js). Enquanto os valores
 permanecerem como `SEU_*`, as conexões ficam indisponíveis e o usuário vê o aviso administrativo.
 
@@ -330,7 +365,7 @@ No entanto, vale lembrar que:
 A arquitetura do Rateio de Faturas é interessante, mas apresenta desafios importantes:
 
 - perda de dados locais;
-- ausência de sincroniza��ão entre dispositivos;
+- ausência de sincronização entre dispositivos;
 - dependência da compatibilidade do navegador;
 - necessidade de validação de integrações OAuth;
 - desafios de extração de dados em PDFs e e-mails com formatos diferentes;
@@ -492,7 +527,7 @@ Para testar a conformidade no iPhone/iPad:
 
 ---
 
-> **Nota**: Esta implementação é puramente CSS/HTML/comportamental. Não houve alterações na lógica de negócio, SQL, Web Workers ou estrutura do `app.js`.
+> **Nota**: Esta implementação é puramente CSS/HTML/comportamental. Não houve alterações na lógica de negócio nem no SQL. O código-fonte é organizado por feature em `src/` (ver "Organização do código (Feature-Driven)").
 
 ## Resumo executivo
 

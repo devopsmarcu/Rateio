@@ -3,7 +3,7 @@
 // ==========================================================================
 //
 // Arquivo de REFERÊNCIA para o responsável pelo aplicativo.
-// Os valores reais devem ser definidos em oauth-config.js — substituindo as
+// Os valores reais devem ser definidos em src/integrations/oauth/config.js — substituindo as
 // constantes GOOGLE_CLIENT_ID e MICROSOFT_CLIENT_ID.
 //
 // NÃO existem segredos aqui. Em uma SPA tudo que vai ao navegador é público,
