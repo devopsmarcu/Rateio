@@ -2,7 +2,7 @@
 // Rateio de Faturas — Tela 10: Pessoas
 // ==========================================================================
 import { S } from '../core/state.js';
-import { esc, R, mesLabel } from '../core/format.js';
+import { esc, R, mesLabel, dataCurta } from '../core/format.js';
 import { overlay, empty, top, backBtn, monthSel, openSheet, ICO } from '../core/ui.js';
 import { q, meses } from '../core/db.js';
 import { pixEmv } from '../core/pix.js';
@@ -80,7 +80,8 @@ async function pessoaDetalhe(id) {
 
   const ms = await meses();
   const rows = (await q(`
-    SELECT r.id, r.pago, r.valor_fracao v, l.descricao d, b.nome banco, f.mes_referencia
+    SELECT r.id, r.pago, r.valor_fracao v, l.descricao d, b.nome banco,
+      f.mes_referencia, f.data_vencimento
     FROM rateio_lancamento r
     JOIN lancamentos l ON l.id = r.lancamento_id
     JOIN faturas f ON f.id = l.fatura_id
@@ -181,17 +182,38 @@ async function pessoaDetalhe(id) {
 
 // Geração do Texto de Cobrança Formatado (Screen 11 Mockup)
 function cobrancaTexto(a, mes) {
-  const o = a.filter(x => !x.pago), t = o.reduce((s, x) => s + x.v, 0);
+  const o = a.filter(x => !x.pago);
+  const t = o.reduce((s, x) => s + x.v, 0);
+  const porBanco = new Map();
+
+  o.forEach(x => {
+    const banco = x.banco || 'Banco não informado';
+    if (!porBanco.has(banco)) porBanco.set(banco, []);
+    porBanco.get(banco).push(x);
+  });
+
   let msg = `Olá ${a[0].nome}! Segue sua cobrança do mês:\n\n`;
   msg += `• Mês: ${mesLabel(mes)}\n`;
-  msg += `• Valor total: ${R(t)}\n`;
   if (a[0].chave_pix) {
     msg += `• Pagamento via Pix\n`;
     msg += `• Chave Pix: ${a[0].chave_pix}\n`;
   }
-  msg += `\nPrincipais gastos:\n`;
-  msg += o.map(x => `• ${x.d}: ${R(x.v)}`).join('\n');
-  msg += `\n\n⚠️ Pagamento pendente.`;
+  msg += '\nFaturas pendentes por banco:\n';
+
+  porBanco.forEach((faturas, banco) => {
+    const totalBanco = faturas.reduce((s, x) => s + x.v, 0);
+    const vencimentos = [...new Set(faturas.map(x => x.data_vencimento).filter(Boolean))];
+    const vencimento = vencimentos.length
+      ? vencimentos.map(dataCurta).join(' · ')
+      : 'Não informado';
+
+    msg += `\n${banco}\n`;
+    msg += `Vencimento: ${vencimento}\n`;
+    msg += faturas.map(x => `• ${x.d}: ${R(x.v)}`).join('\n');
+    msg += `\nSubtotal ${banco}: ${R(totalBanco)}\n`;
+  });
+
+  msg += `\nTotal geral: ${R(t)}\n\n⚠️ Pagamento pendente.`;
   return msg;
 }
 
