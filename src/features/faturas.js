@@ -17,10 +17,15 @@ async function faturas() {
 
   if (S.ff === 'pendentes') rows = rows.filter(f => !f.pago);
   else if (S.ff === 'pagas') rows = rows.filter(f => f.pago);
-  else if (S.ff === 'vencidas') rows = rows.filter(f => vencida(f));
+  else if (S.ff === 'divergentes') rows = rows.filter(f => diverge(f.soma, f.valor_total));
+  if (S.fq) rows = rows.filter(f => f.banco.toLocaleLowerCase('pt-BR').includes(S.fq.toLocaleLowerCase('pt-BR')));
 
-  const filt = ['todas', 'pendentes', 'pagas', 'vencidas'];
-  const labels = { todas: 'Todas', pendentes: 'Pendentes', pagas: 'Pagas', vencidas: 'Vencidas' };
+  const filt = ['todas', 'pendentes', 'pagas', 'divergentes'];
+  const labels = { todas: 'Todas', pendentes: 'Pendentes', pagas: 'Pagas', divergentes: 'Divergentes' };
+  const porBanco = rows.reduce((grupos, f) => {
+    (grupos[f.banco] ??= []).push(f);
+    return grupos;
+  }, {});
 
   return `
     ${top(
@@ -41,11 +46,16 @@ async function faturas() {
       `).join('')}
     </div>
 
-    <!-- Lista de Faturas -->
+    <div class="fatura-search">
+      <input class="field" type="search" data-a="fsearch" value="${esc(S.fq)}" placeholder="Pesquisar por banco" aria-label="Pesquisar faturas por banco">
+    </div>
+
+    <!-- Lista de Faturas agrupada por instituição -->
     ${rows.length ? `
-      <div class="group">
-        ${rows.map(faturaCell).join('')}
-      </div>` : empty(
+      ${Object.entries(porBanco).map(([banco, faturasBanco]) => `
+        <p class="section-label">${esc(banco)} · ${faturasBanco.length} ${faturasBanco.length === 1 ? 'fatura' : 'faturas'}</p>
+        <div class="group">${faturasBanco.map(faturaCell).join('')}</div>
+      `).join('')}` : empty(
         'Nenhuma fatura',
         'Não há faturas para o filtro selecionado.',
         '<div class="actions" style="margin:0"><button type="button" class="btn primary" data-a="importar">' + ICO.plus + ' Importar fatura</button></div>'

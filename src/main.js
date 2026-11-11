@@ -968,6 +968,16 @@ document.addEventListener('change', e => {
 
 document.addEventListener('input', e => {
   if (e.target.classList.contains('rv')) rateioRest();
+  if (e.target.dataset.a === 'fsearch') {
+    S.fq = e.target.value.trim();
+    go().then(() => {
+      const campo = document.querySelector('[data-a="fsearch"]');
+      if (campo) {
+        campo.focus();
+        campo.setSelectionRange(campo.value.length, campo.value.length);
+      }
+    });
+  }
 });
 
 document.addEventListener('keydown', e => {
