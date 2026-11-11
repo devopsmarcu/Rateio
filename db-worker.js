@@ -25,24 +25,24 @@ const ready=(async()=>{
 
 // Valida se o buffer contém um banco SQLite válido com as tabelas esperadas
 async function validateDbBuffer(s3Module, buffer) {
-  const tempDb = new s3Module.oo1.OpfsDb('/faturas_temp_restore.sqlite3', 'c');
+  const tempPath = '/faturas_temp_restore.sqlite3';
+  let tempDb;
   try {
     const uint8 = new Uint8Array(buffer);
-    // Importa o buffer para o banco temporário
-    await tempDb.import(uint8);
+    // A API de importação pertence ao construtor OpfsDb, não à instância.
+    await s3Module.oo1.OpfsDb.importDb(tempPath, uint8);
+    tempDb = new s3Module.oo1.OpfsDb(tempPath, 'c');
     // Verifica tabelas essenciais
-    const tables = tempDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name IN ('pessoas','bancos','faturas','lancamentos','rateio_lancamento')`);
-    const names = new Set(tables.map(r => r[0]));
+    const names = new Set(tempDb.selectValues(`
+      SELECT name FROM sqlite_master
+      WHERE type = 'table' AND name IN ('pessoas','bancos','faturas','lancamentos','rateio_lancamento')
+    `));
     const required = ['pessoas','bancos','faturas','lancamentos','rateio_lancamento'];
     for (const t of required) if (!names.has(t)) throw Error(`Tabela ausente: ${t}`);
-    // Fecha e remove o temporário
-    tempDb.close();
-    try { s3Module.oo1.OpfsDb.unlink('/faturas_temp_restore.sqlite3'); } catch {}
     return true;
-  } catch (e) {
-    try { tempDb.close(); } catch {}
-    try { s3Module.oo1.OpfsDb.unlink('/faturas_temp_restore.sqlite3'); } catch {}
-    throw e;
+  } finally {
+    try { tempDb?.close(); } catch {}
+    try { await s3Module.opfs.unlink(tempPath); } catch {}
   }
 }
 
@@ -57,11 +57,9 @@ onmessage=async({data:{id,type,sql,bind,stmts,buffer}})=>{
     await validateDbBuffer(s3, buffer);
     // Fecha banco atual
     db.close();
-    // Substitui o arquivo principal
-    const mainDb = new s3.oo1.OpfsDb('/faturas.sqlite3','c');
     const uint8 = new Uint8Array(buffer);
-    await mainDb.import(uint8);
-    mainDb.close();
+    // Substitui o arquivo principal pela API de importação do OPFS.
+    await s3.oo1.OpfsDb.importDb('/faturas.sqlite3', uint8);
     // Reabre o banco principal
     db = new s3.oo1.OpfsDb('/faturas.sqlite3','c');
     db.exec('PRAGMA foreign_keys=ON');
