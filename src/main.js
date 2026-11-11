@@ -878,7 +878,9 @@ const A = {
       if (!file.name.endsWith('.sqlite3')) return toast('Selecione um arquivo .sqlite3 válido');
       try {
         const buffer = await file.arrayBuffer();
-        const result = await call('restore', buffer);
+        // O worker recebe parâmetros em um objeto; passar o ArrayBuffer
+        // diretamente faz o spread descartá-lo e resulta em um banco vazio.
+        const result = await call('restore', { buffer });
         if (result?.ok) {
           toast('Backup restaurado com sucesso! Recarregando...');
           // Recarrega completamente o estado
