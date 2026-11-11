@@ -5,6 +5,7 @@ import { S } from '../core/state.js';
 import { esc, R, vencida, proxVenc, diverge } from '../core/format.js';
 import { overlay, monthSel, empty, ICO } from '../core/ui.js';
 import { meses, faturaRows, q } from '../core/db.js';
+import { faturaCell } from '../core/banco.js';
 
 async function inicio() {
   overlay(0);
@@ -34,6 +35,14 @@ async function inicio() {
     p.t += r.v;
     if (!r.pago) p.o += r.v;
   });
+
+  const rateado = rr.reduce((s, r) => s + r.v, 0);
+  const recebido = rr.filter(r => r.pago).reduce((s, r) => s + r.v, 0);
+  const pendenteReceber = rateado - recebido;
+  const porBanco = rows.reduce((grupos, f) => {
+    (grupos[f.banco] ??= []).push(f);
+    return grupos;
+  }, {});
 
   const userName = localStorage.userName || 'Usuario';
 
@@ -65,7 +74,7 @@ async function inicio() {
 
     <!-- Resumo Financeiro Hero -->
     <div class="hero">
-      <div class="hero-label">Total pendente</div>
+      <div class="hero-label">Faturas pendentes</div>
       <div class="money-xl">${R(pend)}</div>
       <div class="bar-wrap">
         <div class="bar" aria-hidden="true">
@@ -81,6 +90,25 @@ async function inicio() {
           <div class="k">Total das faturas</div>
           <div class="money">${R(tot)}</div>
         </div>
+      </div>
+    </div>
+
+    <div class="dashboard-metrics" aria-label="Indicadores financeiros do mês">
+      <div class="dashboard-metric">
+        <span>Total das faturas</span>
+        <strong>${R(tot)}</strong>
+      </div>
+      <div class="dashboard-metric">
+        <span>Já rateado</span>
+        <strong>${R(rateado)}</strong>
+      </div>
+      <div class="dashboard-metric warn">
+        <span>Pendente de receber</span>
+        <strong>${R(pendenteReceber)}</strong>
+      </div>
+      <div class="dashboard-metric ok">
+        <span>Total recebido</span>
+        <strong>${R(recebido)}</strong>
       </div>
     </div>
 
@@ -109,6 +137,12 @@ async function inicio() {
             </div>`;
         }).join('')}
       </div>` : ''}
+
+    <p class="section-label">Faturas por banco</p>
+    ${Object.entries(porBanco).map(([banco, faturasBanco]) => `
+      <p class="section-label bank-group-title">${esc(banco)} · ${faturasBanco.length} ${faturasBanco.length === 1 ? 'fatura' : 'faturas'}</p>
+      <div class="group">${faturasBanco.map(faturaCell).join('')}</div>
+    `).join('')}
 
     <!-- Resumo por Pessoa -->
     <p class="section-label">Resumo por pessoa</p>

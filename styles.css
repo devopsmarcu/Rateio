@@ -664,6 +664,52 @@ body.overlay #app {
   transition: width var(--motion-duration-slow) var(--motion-ease);
 }
 
+/* Indicadores compactos da visão geral */
+.dashboard-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 16px 18px;
+}
+
+.dashboard-metric {
+  min-width: 0;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-metric span {
+  display: block;
+  color: var(--secondary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: .035em;
+}
+
+.dashboard-metric strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 7px;
+  color: var(--label);
+  font-size: 16px;
+  font-variant-numeric: var(--num);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-metric.warn strong { color: var(--warn); }
+.dashboard-metric.ok strong { color: var(--ok); }
+
+.bank-group-title {
+  margin-top: 16px;
+  padding-bottom: 0;
+  color: var(--secondary);
+}
+
 .hero .sub-metrics {
   display: flex;
   justify-content: space-between;
