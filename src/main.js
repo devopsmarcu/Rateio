@@ -12,6 +12,7 @@ import { inicio } from './features/inicio.js';
 import { faturas } from './features/faturas.js';
 import { parcelas, verGrupo } from './features/parcelas.js';
 import { pessoas, modalCobranca } from './features/pessoas.js';
+import { cobrancas } from './features/cobrancas.js';
 import { ajustes } from './features/ajustes.js';
 import { norm, casar, cents, rateioRest, renderRateio, modalReaproveitamento } from './features/rateio.js';
 import { gl, importarView, show, syncPreviewFields } from './features/importacao/view.js';
@@ -68,7 +69,7 @@ initDb();
 // ==========================================================================
 // Roteador e Navegação
 // ==========================================================================
-const V = { inicio, faturas, parcelas, pessoas, ajustes };
+const V = { inicio, faturas, parcelas, pessoas, cobrancas, ajustes };
 
 export async function go(t) {
   if (t) {
@@ -182,6 +183,10 @@ const A = {
     go();
   },
   mesp: (d, el) => {
+    S.mes = el.value;
+    go();
+  },
+  mesc: (d, el) => {
     S.mes = el.value;
     go();
   },
@@ -364,7 +369,22 @@ const A = {
     go();
   },
   cobra: async d => {
-    const a = S.g[d.pid];
+    let a = S.g[d.pid];
+    if (!a?.length) {
+      const rows = (await q(`
+        SELECT r.id, r.pago, r.valor_fracao v, l.descricao d, b.nome banco,
+          f.mes_referencia, f.data_vencimento, p.nome, p.chave_pix, p.id pid
+        FROM rateio_lancamento r
+        JOIN lancamentos l ON l.id = r.lancamento_id
+        JOIN faturas f ON f.id = l.fatura_id
+        JOIN bancos b ON b.id = f.banco_id
+        JOIN pessoas p ON p.id = r.pessoa_id
+        WHERE r.pessoa_id = ? AND f.mes_referencia = ?
+        ORDER BY b.nome COLLATE NOCASE, l.data_transacao DESC, l.id DESC
+      `, [d.pid, S.mes])).rows;
+      a = rows;
+      S.g[d.pid] = rows;
+    }
     if (!a?.length) return;
     modalCobranca(a, S.mes);
   },

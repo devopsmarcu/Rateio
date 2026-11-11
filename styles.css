@@ -976,6 +976,39 @@ body.overlay #tabbar {
   outline-offset: 2px;
 }
 
+/* Central de cobranças */
+.charge-hero {
+  text-align: left;
+}
+
+.charge-cell {
+  gap: 8px;
+}
+
+.charge-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+  text-align: left;
+}
+
+.charge-person .grow {
+  min-width: 0;
+}
+
+.charge-person .item-main {
+  display: flex;
+}
+
+.charge-action {
+  flex: none;
+  align-self: center;
+  border: 0;
+  white-space: nowrap;
+}
+
 /* ==========================================================================
    Lista de Itens (Faturas e Lançamentos)
    ========================================================================== */
@@ -1699,4 +1732,3 @@ body.overlay #toast {
   gap: 12px;
   min-width: 0;
 }
-
