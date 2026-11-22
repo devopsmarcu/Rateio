@@ -28,11 +28,8 @@ jobs:
       - name: Executar testes
         run: node test_oauth.mjs
 
-  deploy:
+  build:
     needs: test
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -59,7 +56,19 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+          name: github-pages
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
 
       - name: Publicar site
         id: deployment
         uses: actions/deploy-pages@v5
+        with:
+          artifact_name: github-pages

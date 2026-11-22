@@ -128,6 +128,22 @@ const A = {
     S.ff = d.k;
     go();
   },
+  clearfilters: () => {
+    S.fq = '';
+    go();
+  },
+  clearbank: () => {
+    S.fb = '';
+    go();
+  },
+  fb: (d, el) => {
+    S.fb = el.value;
+    go();
+  },
+  fo: (d, el) => {
+    S.fo = el.value;
+    go();
+  },
   homePay: () => {
     S.fat = null;
     S.tab = 'faturas';
@@ -261,7 +277,12 @@ const A = {
         <button type="button" data-a="closesheet">Cancelar</button>
       </div>`);
   },
-  fatrateio: () => {
+  fatrateio: d => {
+    if (d.id) {
+      S.fat = +d.id;
+      go().then(() => document.querySelector('#lancamentos-section')?.scrollIntoView({ behavior: 'smooth' }));
+      return;
+    }
     const el = $('#lancamentos-section');
     if (el) el.scrollIntoView({ behavior: 'smooth' });
     toast('Selecione um lançamento para ratear');
@@ -995,14 +1016,16 @@ document.addEventListener('change', e => {
 document.addEventListener('input', e => {
   if (e.target.classList.contains('rv')) rateioRest();
   if (e.target.dataset.a === 'fsearch') {
-    S.fq = e.target.value.trim();
-    go().then(() => {
+    S.fq = e.target.value;
+    clearTimeout(S._fsearchTimer);
+    const start = e.target.selectionStart;
+    S._fsearchTimer = setTimeout(() => go().then(() => {
       const campo = document.querySelector('[data-a="fsearch"]');
       if (campo) {
         campo.focus();
-        campo.setSelectionRange(campo.value.length, campo.value.length);
+        campo.setSelectionRange(start, start);
       }
-    });
+    }), 140);
   }
 });
 

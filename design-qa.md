@@ -1,66 +1,58 @@
-# Design QA — Dashboard Início “Saldo e ação”
+# Design QA — Faturas / Fila por urgência
 
-## Evidence
+## Evidências
 
-- Source visual truth: `C:\Users\marcola\.codex\generated_images\01a1febd-8049-7023-ad77-bf8f5b2ad721\exec-5285477d-2d87-4e79-b320-af1bc6a5f5a8.png`
-- Implementation screenshot: `C:\temp\rateio\screenshots\dashboard-option-1.png`
-- Small-screen screenshot: `C:\temp\rateio\screenshots\dashboard-option-1-small.png`
-- Light-theme screenshot: `C:\temp\rateio\screenshots\dashboard-option-1-light.png`
-- Side-by-side comparison: `C:\temp\rateio\screenshots\dashboard-design-comparison.png`
-- Source pixels: 852 × 1846, normalized at 50% to 426 × 923 CSS-equivalent pixels.
-- Implementation pixels/CSS viewport: 430 × 932 at device scale factor 1.
-- Additional responsive viewport: 360 × 800 at device scale factor 1.
-- State: populated November 2026 dashboard, dark theme for the fidelity comparison.
+- Fonte visual: `C:\Users\marcola\.codex\generated_images\01a1febd-8049-7023-ad77-bf8f5b2ad721\exec-f4e983b7-85f1-4862-b27d-bdf1558c414a.png`
+- Implementação em tema escuro: `C:\temp\rateio\screenshots\faturas-option-2-dark.png`
+- Implementação em tema claro: `C:\temp\rateio\screenshots\faturas-option-2-light.png`
+- Comparação normalizada: `C:\temp\rateio\screenshots\faturas-option-2-comparison.png`
+- Viewport CSS: `390 x 844`, `deviceScaleFactor: 1`.
+- Fonte: `852 x 1846` pixels, reduzida proporcionalmente para `390 x 844` na comparação.
+- Implementação: `390 x 844` pixels.
+- Estado: novembro de 2026, lista populada, tema escuro; tema claro capturado separadamente.
 
-## Full-view comparison
+## Comparação visual
 
-The side-by-side evidence confirms the selected hierarchy: month header, paired “A pagar/A receber” summary, useful paid/total progress, primary import action, prioritized issues, bank summary and people summary. The implementation preserves the same OLED iOS language, grouped surfaces, semantic urgency colors and bottom navigation.
+A comparação completa normalizada foi aberta com a referência e a implementação lado a lado. A hierarquia principal corresponde à direção escolhida: título/importação, competência e total, pesquisa, status com contagens, filtros combináveis, bloco de atenção, lista cronológica compacta e navegação persistente.
 
-The implementation intentionally keeps 44 px touch targets and readable 13–17 px product text. Consequently, lower sections continue below the first viewport instead of compressing every row into the frame as the generated reference does. This is an accessibility and production constraint, not unresolved visual drift.
+Não foi necessário recorte adicional: no comparativo em escala CSS 1:1, tipografia, estados, valores, datas, ações e separadores permaneceram legíveis. As capturas individuais foram abertas para confirmar contraste e wrapping.
 
-## Focused comparison
+## Superfícies de fidelidade
 
-The hero and priority regions are readable in the combined evidence, so separate crops were not required. Typography, dividers, monetary alignment, blue CTA, blue progress indicator, bank badges and action pills can be compared directly at normalized scale.
+- Tipografia: família do sistema preservada; pesos e tamanhos distinguem banco, valor, vencimento e metadados sem truncamento.
+- Espaçamento e ritmo: linhas compactadas após a primeira comparação; duas urgências e parte da lista restante aparecem acima da navegação, sem cards excessivamente altos.
+- Cores e tokens: usa tokens existentes para fundo, superfícies, texto, azul, sucesso, atenção e erro; claro e escuro mantêm contraste.
+- Imagens e ícones: não há imagens raster necessárias. Avatares por sigla e ícones do sistema existente foram preservados, sem ativos aproximados novos.
+- Texto e conteúdo: pagamento, vencimento e recebimentos são apresentados separadamente; valores usam Real brasileiro.
 
-## Fidelity surfaces
+## Interações verificadas
 
-- Fonts and typography: passed. System/SF Pro stack, tabular currency numerals and hierarchy match the reference closely; no clipping at 430 px or 360 px.
-- Spacing and layout rhythm: passed. The summary, CTA and priority order match the selected direction. Production spacing is slightly more generous to retain touch targets.
-- Colors and tokens: passed. OLED background, iOS blue, semantic warning states and light-theme equivalents use the existing design-system tokens.
-- Image and asset fidelity: passed. The reference contains no raster imagery; implementation reuses the app’s existing icon and bank-badge system without placeholders.
-- Copy and content: passed. All requested indicators are present with Brazilian currency formatting; “Resolver agora”, “Por banco” and the limited people list retain concise labels.
+- Busca por instituição (`Santander`) e texto relativo de vencimento.
+- Filtro de status e banco combinados.
+- Ordenação por maior valor.
+- Estado vazio específico de divergências.
+- Abertura de detalhes e atalho `Ratear` até os lançamentos.
+- Importação permanece visível no cabeçalho.
+- Console verificado: nenhuma falha da aplicação; apenas `favicon.ico` ausente no servidor local, sem impacto funcional.
 
-## Interaction verification
+## Histórico de comparação
 
-- “A pagar” opens Faturas with `pendentes` selected.
-- “A receber” opens Cobranças.
-- A bank row opens Faturas filtered by that bank.
-- “Ver todas” opens Pessoas.
-- Every navigation check preserved `S.mes = 2026-11`.
-- Browser console on the final clean-profile run: no errors.
+1. Primeira passagem: `Importar` era cortado em largura estreita e as linhas exibiam densidade menor que a referência.
+   - Correções: grade do cabeçalho ampliada; pagamento, recebimento e ação de rateio compactados; cópia redundante removida.
+   - Evidência posterior: `faturas-option-2-comparison.png` mostra o cabeçalho completo e lista mais densa.
+2. Segunda passagem: faturas próximas em até sete dias entravam indevidamente no bloco de ação imediata, e uma vencida repetia o estado de prazo no badge de pagamento.
+   - Correções: somente vencidas e com vencimento hoje ficam em `Exigem atenção`; próximas continuam destacadas na lista normal; badge agora diz `Fatura pendente`.
+   - Evidência posterior: captura final mostra `2 exigem atenção` e prazo/status separados.
 
-## Comparison history
+## Achados
 
-### Iteration 1
+Nenhum achado P0, P1 ou P2 permanece.
 
-- P2: Import CTA appeared after priorities instead of immediately below the summary.
-- P2: A divergence was ordered before a bill due today.
-- Fixes: moved CTA directly below the summary; added “Vence hoje” priority ahead of divergence.
-- Post-fix evidence: `screenshots/dashboard-option-1.png`.
+### Follow-up P3
 
-### Iteration 2
+- A referência usa chips ilustrados para banco/período/ordenação; a implementação mantém seletores nativos do design system para melhor acessibilidade e coerência com o produto existente.
+- A quantidade de resultados difere porque a base temporária de QA contém cinco faturas, enquanto a composição visual usa seis.
 
-- P2: Progress used success green instead of the reference’s iOS blue.
-- P2: Priority actions were plain links rather than strong quick-action pills.
-- Fixes: switched progress to `--accent`; styled “Revisar/Ratear” as blue pills; restored the vertical divider between balance columns.
-- Post-fix evidence: `screenshots/dashboard-design-comparison.png`.
-
-## Findings
-
-No actionable P0, P1 or P2 findings remain.
-
-P3 follow-up: the generated reference shows only two priority rows while the implementation shows the three real priority categories from the requested product scope. This is an intentional content difference and improves coverage without changing calculations.
-
-## Final result
+## Resultado
 
 final result: passed

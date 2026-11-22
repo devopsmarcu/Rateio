@@ -15,6 +15,8 @@ export const S = {
   imp: null,
   ff: 'todas',
   fq: '',
+  fb: '',
+  fo: 'vencimento',
   editP: null,
   rmode: 'v',
   rt: [],
