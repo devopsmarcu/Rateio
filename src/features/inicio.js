@@ -2,10 +2,10 @@
 // Rateio de Faturas — Tela 1: Início
 // ==========================================================================
 import { S } from '../core/state.js';
-import { esc, R, vencida, proxVenc, diverge } from '../core/format.js';
+import { esc, R, vencida, proxVenc, diverge, hojeISO } from '../core/format.js';
 import { overlay, monthSel, empty, emptyAction, ICO } from '../core/ui.js';
 import { meses, faturaRows, q } from '../core/db.js';
-import { faturaCell } from '../core/banco.js';
+import { bancoMeta } from '../core/banco.js';
 
 async function inicio() {
   overlay(0);
@@ -17,7 +17,7 @@ async function inicio() {
   const pct = tot ? Math.min(100, Math.round((pago / tot) * 100)) : 0;
   
   // Itens que requerem atenção
-  const att = rows.filter(f => vencida(f) || proxVenc(f) || diverge(f.soma, f.valor_total));
+  const att = rows.filter(f => vencida(f) || proxVenc(f) || diverge(f.soma, f.valor_total) || f.sem > 0);
   
   // Resumo por pessoa
   const rr = (await q(`
@@ -43,6 +43,19 @@ async function inicio() {
     (grupos[f.banco] ??= []).push(f);
     return grupos;
   }, {});
+  const peopleRows = Object.values(people).sort((a, b) => b.o - a.o || a.nome.localeCompare(b.nome, 'pt-BR'));
+  const bankRows = Object.entries(porBanco).map(([banco, faturasBanco]) => ({
+    banco,
+    faturas: faturasBanco,
+    total: faturasBanco.reduce((s, f) => s + f.valor_total, 0),
+    pendente: faturasBanco.filter(f => !f.pago).reduce((s, f) => s + f.valor_total, 0)
+  }));
+  const personCount = peopleRows.length;
+  const pendingPersonCount = peopleRows.filter(p => p.o > 0.005).length;
+  const priorityRows = att.slice().sort((a, b) => {
+    const priority = f => vencida(f) ? 0 : f.data_vencimento === hojeISO() ? 1 : diverge(f.soma, f.valor_total) ? 2 : proxVenc(f) ? 3 : f.sem > 0 ? 4 : 5;
+    return priority(a) - priority(b);
+  });
 
   const userName = localStorage.userName || 'Usuario';
 
@@ -72,90 +85,74 @@ async function inicio() {
 
     ${navigator.onLine ? '' : '<div class="offline-bar">Sem conexão. Funções locais continuam disponíveis.</div>'}
 
-    <!-- Resumo Financeiro Hero -->
-    <div class="hero">
-      <div class="hero-label">Faturas pendentes</div>
-      <div class="money-xl">${R(pend)}</div>
-      <div class="bar-wrap">
-        <div class="bar" aria-hidden="true">
-          <i class="hero-progress-bar" style="--progress:${pct}%"></i>
-        </div>
-      </div>
-      <div class="sub-metrics">
-        <div>
-          <div class="k">Pago</div>
-          <div class="money ok">${R(pago)} <span class="sm mut">(${pct}%)</span></div>
-        </div>
-        <div class="summary-end">
-          <div class="k">Total das faturas</div>
-          <div class="money">${R(tot)}</div>
-        </div>
-      </div>
+    <section class="home-balance" aria-label="Resumo financeiro do mês">
+      <button type="button" class="home-balance-item home-pay" data-a="homePay">
+        <span class="home-kicker">A pagar</span>
+        <strong class="home-amount">${R(pend)}</strong>
+        <span class="home-hint">${rows.filter(f => !f.pago).length} ${rows.filter(f => !f.pago).length === 1 ? 'fatura pendente' : 'faturas pendentes'} <span class="chev">${ICO.chev}</span></span>
+      </button>
+      <button type="button" class="home-balance-item home-receive" data-a="homeReceive">
+        <span class="home-kicker">A receber</span>
+        <strong class="home-amount">${R(pendenteReceber)}</strong>
+        <span class="home-hint">${pendingPersonCount} ${pendingPersonCount === 1 ? 'pessoa pendente' : 'pessoas pendentes'} <span class="chev">${ICO.chev}</span></span>
+      </button>
+      <div class="home-total"><span>Total das faturas</span><strong class="money">${R(tot)}</strong></div>
+      <div class="home-flow-summary"><span>Rateado <strong class="money">${R(rateado)}</strong></span><span>Recebido <strong class="money">${R(recebido)}</strong></span></div>
+      <div class="home-progress-copy"><span>${R(pago)} pagos de ${R(tot)}</span><strong>${pct}%</strong></div>
+      <div class="bar" role="progressbar" aria-label="Proporção de faturas pagas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i class="hero-progress-bar" style="--progress:${pct}%"></i></div>
+    </section>
+
+    <div class="actions home-import-action">
+      <button type="button" class="btn primary" data-a="importar">${ICO.plus} Importar fatura</button>
     </div>
 
-    <div class="dashboard-metrics" aria-label="Indicadores financeiros do mês">
-      <div class="dashboard-metric">
-        <span>Total das faturas</span>
-        <strong>${R(tot)}</strong>
-      </div>
-      <div class="dashboard-metric">
-        <span>Já rateado</span>
-        <strong>${R(rateado)}</strong>
-      </div>
-      <div class="dashboard-metric warn">
-        <span>Pendente de receber</span>
-        <strong>${R(pendenteReceber)}</strong>
-      </div>
-      <div class="dashboard-metric ok">
-        <span>Total recebido</span>
-        <strong>${R(recebido)}</strong>
-      </div>
+    <div class="home-section-heading">
+      <h2>Resolver agora</h2>
+      ${priorityRows.length ? `<span class="pill warn">${priorityRows.length}</span>` : ''}
     </div>
+    ${priorityRows.length ? `<div class="group home-priorities">
+      ${priorityRows.map(f => {
+        const isVenc = vencida(f);
+        const isToday = f.data_vencimento === hojeISO();
+        const isDiv = diverge(f.soma, f.valor_total);
+        const isProx = proxVenc(f);
+        const why = isVenc ? 'Venceu' : isToday ? 'Vence hoje' : isDiv ? 'Conferir valores' : isProx ? 'Vence em breve' : 'Rateio pendente';
+        const c = isVenc ? 'bad' : isToday || isDiv || isProx ? 'warn' : 'accent';
+        const action = f.sem > 0 && !isVenc && !isToday && !isDiv && !isProx ? 'Ratear' : 'Revisar';
+        const bm = bancoMeta(f.banco);
+        return `<button type="button" class="cell home-priority" data-a="open" data-id="${f.id}">
+          <span class="banco-badge home-bank-icon ${bm.cls}">${bm.sigla}</span>
+          <span class="grow">
+            <span class="home-priority-bank">${esc(f.banco)}</span>
+            <span class="home-priority-meta"><span class="pill ${c}">${why}</span><span class="money">${R(f.valor_total)}</span></span>
+          </span>
+          <span class="home-action">${action}</span><span class="chev">${ICO.chev}</span>
+        </button>`;
+      }).join('')}
+    </div>` : `<div class="group"><div class="cell mut sm">Nenhuma pendência prioritária neste mês.</div></div>`}
 
-    <!-- Seção de Atenção (Se houver pendências críticas) -->
-    ${att.length ? `
-      <p class="section-label">Atenção</p>
-      <div class="group">
-        ${att.map(f => {
-          const isVenc = vencida(f);
-          const isProx = proxVenc(f);
-          const isDiv = diverge(f.soma, f.valor_total);
-          const why = isVenc ? 'Fatura vencida' : isProx ? 'Vence em breve' : isDiv ? 'Fatura não conferida' : 'Revisar';
-          const badgeClass = isVenc ? 'bad' : 'warn';
-          return `
-            <div class="cell pressable" data-a="open" data-id="${f.id}" role="button" tabindex="0">
-              <div class="grow">
-                <div class="item-main">
-                  <b>${esc(f.banco)}</b>
-                  <span class="money">${R(f.valor_total)}</span>
-                </div>
-                <div class="item-meta">
-                  <span class="pill ${badgeClass}"><i class="dot"></i>${why}</span>
-                </div>
-              </div>
-              <span class="chev">${ICO.chev}</span>
-            </div>`;
-        }).join('')}
-      </div>` : ''}
+    <div class="home-section-heading"><h2>Por banco</h2></div>
+    ${bankRows.length ? `<div class="group home-bank-list">
+      ${bankRows.map(({ banco, faturas, total, pendente: pendenteBanco }) => {
+        const bm = bancoMeta(banco);
+        return `<button type="button" class="cell home-bank-row" data-a="homeBank" data-bank="${esc(banco)}">
+          <span class="banco-badge home-bank-icon ${bm.cls}">${bm.sigla}</span>
+          <span class="grow"><span class="home-priority-bank">${esc(banco)}</span><span class="sm mut">${faturas.length} ${faturas.length === 1 ? 'fatura' : 'faturas'} · ${pendenteBanco > 0.005 ? `${R(pendenteBanco)} pendente` : 'em dia'}</span></span>
+          <strong class="money">${R(total)}</strong><span class="chev">${ICO.chev}</span>
+        </button>`;
+      }).join('')}
+    </div>` : `<div class="group"><div class="cell mut sm">Nenhuma fatura neste mês.</div></div>`}
 
-    <p class="section-label">Faturas por banco</p>
-    ${Object.entries(porBanco).map(([banco, faturasBanco]) => `
-      <p class="section-label bank-group-title">${esc(banco)} · ${faturasBanco.length} ${faturasBanco.length === 1 ? 'fatura' : 'faturas'}</p>
-      <div class="group">${faturasBanco.map(faturaCell).join('')}</div>
-    `).join('')}
-
-    <!-- Resumo por Pessoa -->
-    <p class="section-label">Resumo por pessoa</p>
-    ${Object.keys(people).length ? `
-      <div class="group">
-        ${Object.values(people).map(p => {
+    <div class="home-section-heading"><h2>Resumo por pessoa</h2><button type="button" class="home-see-all" data-a="homePeopleAll">Ver todas</button></div>
+    ${personCount ? `<div class="group home-people-list">
+      ${peopleRows.slice(0, 3).map(p => {
           const isPago = p.o <= 0.005;
           const isParcial = !isPago && p.o < p.t - 0.005;
           const st = isPago ? 'Pago' : isParcial ? 'Parcial' : 'Pendente';
           const c = isPago ? 'ok' : 'warn';
           const initials = p.nome.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
           return `
-            <div class="cell pressable" data-a="openp" data-id="${p.pid}" role="button" tabindex="0">
+            <button type="button" class="cell home-person-row" data-a="openp" data-id="${p.pid}">
               <div class="avatar">${initials}</div>
               <div class="grow">
                 <div class="item-main">
@@ -168,19 +165,9 @@ async function inicio() {
                 </div>
               </div>
               <span class="chev">${ICO.chev}</span>
-            </div>`;
+            </button>`;
         }).join('')}
-      </div>` : `
-      <div class="group">
-        <div class="cell mut sm">Nenhum rateio registrado neste mês.</div>
-      </div>`}
-
-    <!-- Botão Principal de Ação -->
-    <div class="fab-wrap">
-      <button type="button" class="btn primary" data-a="importar">
-        ${ICO.plus} Importar fatura
-      </button>
-    </div>`;
+    </div>` : `<div class="group"><div class="cell mut sm">Nenhum rateio registrado neste mês.</div></div>`}`;
 }
 
 export { inicio };

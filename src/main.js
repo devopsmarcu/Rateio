@@ -128,6 +128,30 @@ const A = {
     S.ff = d.k;
     go();
   },
+  homePay: () => {
+    S.fat = null;
+    S.tab = 'faturas';
+    S.ff = 'pendentes';
+    S.fq = '';
+    go();
+  },
+  homeReceive: () => {
+    S.pessoa = null;
+    S.tab = 'cobrancas';
+    go();
+  },
+  homeBank: d => {
+    S.fat = null;
+    S.tab = 'faturas';
+    S.ff = 'todas';
+    S.fq = d.bank || '';
+    go();
+  },
+  homePeopleAll: () => {
+    S.pessoa = null;
+    S.tab = 'pessoas';
+    go();
+  },
   scrollto: d => {
     const el = $(d.target);
     if (el) el.scrollIntoView({ behavior: 'smooth' });
