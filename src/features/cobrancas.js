@@ -28,7 +28,7 @@ async function cobrancas() {
   return `
     ${top('Cobranças')}
 
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 16px 12px">
+    <div class="month-summary-row charge-toolbar">
       ${monthSel(ms, 'mesc')}
       <span class="pill ${pessoas.length ? 'warn' : 'ok'}"><i class="dot"></i>${pessoas.length} ${pessoas.length === 1 ? 'pessoa' : 'pessoas'}</span>
     </div>
@@ -36,7 +36,7 @@ async function cobrancas() {
     <div class="hero charge-hero">
       <div class="hero-label">Pendente de recebimento</div>
       <div class="money-xl">${R(totalPendente)}</div>
-      <div class="sm mut" style="margin-top:6px">${pessoas.length ? 'Gere uma cobrança individual com os lançamentos separados por banco.' : 'Nenhuma cobrança pendente neste mês.'}</div>
+      <div class="sm mut charge-description">${pessoas.length ? 'Gere uma cobrança individual com os lançamentos separados por banco.' : 'Nenhuma cobrança pendente neste mês.'}</div>
     </div>
 
     <p class="section-label">Cobranças em aberto</p>

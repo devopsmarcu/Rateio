@@ -60,7 +60,7 @@ function confirmUI(title, msg, okLabel, destructive) {
     S._cnf = res;
     openSheet(`
       <h2>${esc(title)}</h2>
-      <p class="footnote" style="margin:0 24px 20px;text-align:center">${esc(msg)}</p>
+      <p class="footnote confirm-copy">${esc(msg)}</p>
       <div class="action-list">
         <button type="button" class="${destructive ? 'bad' : 'muted'}" data-a="cnfy">${esc(okLabel || 'Confirmar')}</button>
         <button type="button" data-a="cnfn">Cancelar</button>
@@ -101,6 +101,11 @@ const empty = (title, desc, action) => `
     ${action || ''}
   </div>`;
 
+const emptyAction = (action, label) => `
+  <div class="actions empty-actions">
+    <button type="button" class="btn primary" data-a="${esc(action)}">${ICO.plus} ${esc(label)}</button>
+  </div>`;
+
 const steps = n => `
   <div class="steps" aria-hidden="true">
     ${[1, 2, 3, 4, 5].map(i => `<i class="${i === n ? 'on' : ''}"></i>`).join('')}
@@ -108,4 +113,4 @@ const steps = n => `
 
 const emsg = e => (e && e.userMessage) || 'Não foi possível concluir a operação. Tente novamente.';
 
-export { $, svg, ICO, overlay, toast, closeSheet, openSheet, confirmUI, top, backBtn, monthSel, empty, steps, emsg };
+export { $, svg, ICO, overlay, toast, closeSheet, openSheet, confirmUI, top, backBtn, monthSel, empty, emptyAction, steps, emsg };

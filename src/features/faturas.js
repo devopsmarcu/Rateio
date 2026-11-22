@@ -3,7 +3,7 @@
 // ==========================================================================
 import { S } from '../core/state.js';
 import { esc, R, vencida, diverge, mesLabel, dataCurta, parcInfo } from '../core/format.js';
-import { overlay, top, monthSel, empty, backBtn, ICO } from '../core/ui.js';
+import { overlay, top, monthSel, empty, emptyAction, backBtn, ICO } from '../core/ui.js';
 import { q, meses, faturaRows } from '../core/db.js';
 import { bancoMeta, faturaEstado, faturaCell } from '../core/banco.js';
 
@@ -34,7 +34,7 @@ async function faturas() {
       `<button type="button" class="link right" data-a="importar" aria-label="Importar fatura">${ICO.plus}</button>`
     )}
 
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 16px 10px;">
+    <div class="month-summary-row">
       ${monthSel(ms)}
       <span class="sm mut">Total: <b class="money ${rows.length ? 'bold' : ''}">${R(totMes)}</b></span>
     </div>
@@ -58,7 +58,7 @@ async function faturas() {
       `).join('')}` : empty(
         'Nenhuma fatura',
         'Não há faturas para o filtro selecionado.',
-        '<div class="actions" style="margin:0"><button type="button" class="btn primary" data-a="importar">' + ICO.plus + ' Importar fatura</button></div>'
+        emptyAction('importar', 'Importar fatura')
       )}`;
 }
 
@@ -106,22 +106,22 @@ async function detalhe(id) {
 
     <!-- Cabeçalho do Banco e Fatura -->
     <div class="hero">
-      <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px">
-        <div class="banco-badge ${bm.cls}" style="width:32px;height:32px;font-size:12px">${bm.sigla}</div>
+      <div class="title-row centered-text item-heading">
+        <div class="banco-badge bank-avatar-sm ${bm.cls}">${bm.sigla}</div>
         <span class="bold">${esc(f.banco)}</span>
         <span class="mut sm">· ${esc(mesLabel(f.mes_referencia))}</span>
       </div>
       <div class="money-xl">${R(f.valor_total)}</div>
-      <div class="sm mut" style="margin-top:4px">
+      <div class="sm mut caption-gap">
         Vencimento: <b class="bold">${esc(dataCurta(f.data_vencimento) || '—')}</b>
       </div>
-      <div class="item-meta" style="justify-content:center;margin-top:12px">
+      <div class="item-meta centered-meta">
         <span class="pill ${conf.c}"><i class="dot"></i>${conf.t}</span>
         <span class="pill ${pag.c}"><i class="dot"></i>${pag.t}</span>
       </div>
       ${diverge(soma, f.valor_total)
-        ? `<div class="pill warn" style="margin-top:12px">Lançamentos somam ${R(soma)} (diferença ${R(f.valor_total - soma)})</div>`
-        : `<div class="pill ok" style="margin-top:12px">${ICO.check} Itens conferem com o total da fatura</div>`}
+        ? `<div class="pill warn inline-pill">Lançamentos somam ${R(soma)} (diferença ${R(f.valor_total - soma)})</div>`
+        : `<div class="pill ok inline-pill">${ICO.check} Itens conferem com o total da fatura</div>`}
     </div>
 
     <!-- Menu Agrupado de Ações Estilo iOS (Screen 7 Mockup) -->
@@ -150,7 +150,7 @@ async function detalhe(id) {
       </div>
       <div class="cell pressable" data-a="delfat" data-id="${id}">
         <span class="grow bad bold">Excluir fatura</span>
-        <span class="chev" style="color:var(--bad)">${ICO.chev}</span>
+        <span class="chev danger-chevron">${ICO.chev}</span>
       </div>
     </div>
 

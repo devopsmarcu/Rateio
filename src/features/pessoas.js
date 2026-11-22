@@ -3,7 +3,7 @@
 // ==========================================================================
 import { S } from '../core/state.js';
 import { esc, R, mesLabel, dataCurta } from '../core/format.js';
-import { overlay, empty, top, backBtn, monthSel, openSheet, ICO } from '../core/ui.js';
+import { overlay, empty, emptyAction, top, backBtn, monthSel, openSheet, ICO } from '../core/ui.js';
 import { q, meses } from '../core/db.js';
 import { pixEmv } from '../core/pix.js';
 
@@ -65,7 +65,7 @@ async function pessoas() {
       </div>` : empty(
         'Nenhuma pessoa',
         'Cadastre os participantes para dividir despesas.',
-        '<div class="actions" style="margin:0"><button type="button" class="btn primary" data-a="addpui">' + ICO.plus + ' Adicionar pessoa</button></div>'
+        emptyAction('addpui', 'Adicionar pessoa')
       )}`;
 }
 
@@ -103,17 +103,17 @@ async function pessoaDetalhe(id) {
       `<button type="button" class="link right" data-a="editp" data-id="${id}">Editar</button>`
     )}
 
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 16px 12px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="avatar" style="width:32px;height:32px;font-size:13px">${initials}</div>
-        <span class="bold" style="font-size:18px">${esc(p.nome)}</span>
+    <div class="page-toolbar">
+      <div class="toolbar-leading">
+        <div class="avatar avatar-sm">${initials}</div>
+        <span class="title3">${esc(p.nome)}</span>
       </div>
       ${monthSel(ms, 'mesp')}
     </div>
 
     <!-- Cards de Resumo Individual -->
     <div class="hero">
-      <div class="sub-metrics" style="border:0;padding:0;margin:0">
+      <div class="sub-metrics sub-metrics-compact">
         <div>
           <div class="k">Total devido</div>
           <div class="money">${R(t)}</div>
@@ -123,7 +123,7 @@ async function pessoaDetalhe(id) {
           <div class="money ok">${R(pg)}</div>
         </div>
       </div>
-      <div style="margin-top:16px;padding-top:14px;border-top:0.5px solid var(--separator)">
+      <div class="detail-divider">
         <div class="hero-label">Saldo pendente</div>
         <div class="money-xl ${o > 0.005 ? 'bad' : 'ok'}">${R(o)}</div>
       </div>
@@ -147,14 +147,14 @@ async function pessoaDetalhe(id) {
       <div class="group">
         ${rows.map(x => `
           <div class="cell">
-            <label class="grow" style="display:flex;align-items:flex-start;gap:12px;cursor:pointer">
-              <input type="checkbox" data-a="rpago" data-id="${x.id}" ${x.pago ? 'checked' : ''} style="width:22px;height:22px;margin-top:2px;accent-color:var(--accent)">
+            <label class="grow label-row">
+              <input type="checkbox" data-a="rpago" data-id="${x.id}" ${x.pago ? 'checked' : ''} class="row-checkbox checkbox-offset">
               <span>
                 <span class="desc">${esc(x.d)}</span>
                 <div class="sm mut">${esc(x.banco)}</div>
               </span>
             </label>
-            <div style="text-align:right">
+            <div class="summary-end">
               <span class="money ${x.pago ? 'ok' : ''}">${R(x.v)}</span>
               <div class="xs ${x.pago ? 'ok' : 'warn'}">${x.pago ? 'Pago' : 'Pendente'}</div>
             </div>
@@ -234,18 +234,18 @@ function modalCobranca(a, mes) {
 
   openSheet(`
     <h2>Cobrança via Pix</h2>
-    <p class="footnote" style="text-align:center;margin-top:0">Pronto para enviar por WhatsApp, iMessage ou outro app.</p>
+    <p class="footnote centered-text">Pronto para enviar por WhatsApp, iMessage ou outro app.</p>
 
     <div class="pix-preview-card">${esc(txt)}</div>
 
     ${chave ? `
-      <div style="margin-top:16px;padding:12px;background:var(--surface);border-radius:var(--radius-lg)">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="code-card">
+        <div class="code-card-head">
           <span class="bold">Código Pix (copia e cola)</span>
           <span class="pill accent">${ICO.copy} BR Code EMV</span>
         </div>
-        <div style="font-family:monospace;font-size:12px;word-break:break-all;background:var(--bg);padding:8px;border-radius:6px;min-height:40px" id="pixEmvCode">${esc(emv)}</div>
-        <div class="actions" style="margin-top:8px">
+        <div class="code-block" id="pixEmvCode">${esc(emv)}</div>
+        <div class="actions actions-top">
           <button type="button" class="btn secondary" data-a="copyemv" data-txt="${encodeURIComponent(emv)}">
             ${ICO.copy} Copiar código Pix
           </button>

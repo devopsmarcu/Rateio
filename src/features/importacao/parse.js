@@ -22,7 +22,7 @@ function askPwd(why) {
     S.pwd = { resolve, reject };
     openSheet(`
       <h2>PDF protegido por senha</h2>
-      <p class="footnote" style="text-align:center">${why === 2 ? 'Senha incorreta. Tente novamente.' : 'Informe a senha para abrir o arquivo.'}</p>
+      <p class="footnote centered-text">${why === 2 ? 'Senha incorreta. Tente novamente.' : 'Informe a senha para abrir o arquivo.'}</p>
       <div class="group">
         <div class="cell">
           <input id="pw" class="field" type="password" placeholder="Senha do PDF" autocomplete="off">

@@ -25,8 +25,8 @@ const gl = () => S.msgs.map((m, i) => {
       <div class="bold ellipsis">${esc(m.subject)}</div>
       <div class="sm mut ellipsis">${esc(m.from)}</div>
     </div>
-    ${jaImportada ? '<span class="pill" style="margin-right:4px">Importada</span>' : ''}
-    ${m.hasAttachments ? '<span class="pill accent" style="margin-right:4px">anexo</span>' : ''}
+    ${jaImportada ? '<span class="pill badge-gap">Importada</span>' : ''}
+    ${m.hasAttachments ? '<span class="pill accent badge-gap">anexo</span>' : ''}
     <span class="chev">${ICO.chev}</span>
   </div>
 `}).join('');
@@ -40,24 +40,24 @@ const searchChips = (q) => `
 
 // Banner de conta conectada
 const accountBanner = (provider, status) => {
-  const icon = provider === 'google' ? `<span style="color:#EA4335">${ICO.mail}</span>` : `<span style="color:#0078D4">${ICO.mail}</span>`;
+  const icon = provider === 'google' ? `<span class="brand-icon gmail">${ICO.mail}</span>` : `<span class="brand-icon outlook">${ICO.mail}</span>`;
   const label = provider === 'google' ? 'Gmail' : 'Outlook';
-  const emailText = status.email ? `<span class="sm mut ellipsis" style="max-width:200px">${esc(status.email)}</span>` : '';
+  const emailText = status.email ? `<span class="sm mut ellipsis account-email">${esc(status.email)}</span>` : '';
   const statusBadge = status.status === 'expirado'
     ? `<span class="pill warn">Expirado</span>`
     : `<span class="pill ok">Conectado</span>`;
   return `
     <div class="account-banner">
-      <div style="display:flex;align-items:center;gap:8px">
+      <div class="account-layout-start">
         ${icon}
         <div>
           <div class="bold">${label}</div>
           ${emailText}
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
+      <div class="account-layout-start">
         ${statusBadge}
-        <button type="button" class="pill" data-a="disconn" data-prov="${provider}" style="color:var(--bad)">Desconectar</button>
+        <button type="button" class="pill bad" data-a="disconn" data-prov="${provider}">Desconectar</button>
       </div>
     </div>`;
 };
@@ -71,10 +71,10 @@ function importarView() {
   if (imp.error && imp.step === 2) {
     return head + steps(2) + `
       <div class="empty">
-        <div class="ico" style="background:var(--bad-bg);color:var(--bad)">${ICO.warn}</div>
+        <div class="ico error-icon">${ICO.warn}</div>
         <h2>Falha na leitura</h2>
         <p>${esc(imp.error)}</p>
-        <div class="actions" style="margin:0">
+        <div class="actions recovery-actions">
           <button type="button" class="btn primary" data-a="impback">Tentar de novo</button>
         </div>
       </div>`;
@@ -84,12 +84,12 @@ function importarView() {
   if (imp.step === 1 && !imp.origin) {
     const gStatus = oauthService.getStatus('google');
     const mStatus = oauthService.getStatus('microsoft');
-    const statusBadgeG = gStatus.status === 'conectado' ? `<span class="pill ok" style="margin-left:auto">Conectado</span>` :
-      gStatus.status === 'expirado' ? `<span class="pill warn" style="margin-left:auto">Expirado</span>` : '';
-    const statusBadgeM = mStatus.status === 'conectado' ? `<span class="pill ok" style="margin-left:auto">Conectado</span>` :
-      mStatus.status === 'expirado' ? `<span class="pill warn" style="margin-left:auto">Expirado</span>` : '';
+    const statusBadgeG = gStatus.status === 'conectado' ? `<span class="pill ok badge-auto">Conectado</span>` :
+      gStatus.status === 'expirado' ? `<span class="pill warn badge-auto">Expirado</span>` : '';
+    const statusBadgeM = mStatus.status === 'conectado' ? `<span class="pill ok badge-auto">Conectado</span>` :
+      mStatus.status === 'expirado' ? `<span class="pill warn badge-auto">Expirado</span>` : '';
     return head + steps(1) + `
-      <p class="footnote" style="margin-top:4px">Escolha como deseja importar sua fatura.</p>
+      <p class="footnote caption-gap">Escolha como deseja importar sua fatura.</p>
       <div class="origin">
         <button type="button" data-a="origem" data-k="gmail">
           <span class="ico gmail">${ICO.mail}</span>
@@ -122,15 +122,15 @@ function importarView() {
           </span>
         </button>
       </div>
-      <p class="footnote" style="margin-top:14px">O processamento é local neste aparelho. Nenhuma informação é enviada para servidores externos.</p>`;
+      <p class="footnote summary-description">O processamento é local neste aparelho. Nenhuma informação é enviada para servidores externos.</p>`;
   }
 
   // Origem Texto copiado
   if (imp.origin === 'texto' && imp.step === 1) {
     return head + steps(1) + `
       <p class="footnote">Cole o texto ou o código HTML da fatura.</p>
-      <div style="margin:12px 16px">
-        <textarea id="tx" class="field" style="background:var(--surface);border-radius:var(--radius-lg);padding:14px;min-height:160px;width:100%" placeholder="Cole o conteúdo aqui..."></textarea>
+      <div class="search-textarea-wrap">
+        <textarea id="tx" class="field form-area" placeholder="Cole o conteúdo aqui..."></textarea>
       </div>
       <div class="actions">
         <button type="button" class="btn primary" data-a="parse">Analisar texto</button>
@@ -148,7 +148,7 @@ function importarView() {
       if (!configured) {
         return head + steps(1) + `
           <div class="empty">
-            <div class="ico" style="color:var(--mut)">${ICO.mail}</div>
+            <div class="ico">${ICO.mail}</div>
             <h2>Indisponível no momento</h2>
             <p>${esc(ADMIN_NOT_CONFIGURED_MSG)}</p>
           </div>`;
@@ -158,7 +158,7 @@ function importarView() {
           <div class="ico">${ICO.mail}</div>
           <h2>Conectar ${nome}</h2>
           <p>${!navigator.onLine ? 'Esta origem requer conexão com a internet.' : 'Toque em Conectar para autorizar a leitura segura das suas mensagens.'}</p>
-          <div class="actions" style="margin:0">
+          <div class="actions recovery-actions">
             <button type="button" class="btn primary" data-a="${imp.origin === 'gmail' ? 'gauth' : 'mauth'}">Conectar ${nome}</button>
           </div>
         </div>`;
@@ -166,7 +166,7 @@ function importarView() {
     const q = imp.q || 'fatura';
     return head + steps(1) + `
       ${accountBanner(provider, status)}
-      <p class="section-label" style="margin-top:16px">Buscar faturas no ${nome}</p>
+      <p class="section-label space-before-section">Buscar faturas no ${nome}</p>
       ${searchChips(q)}
       <div class="group">
         <div class="cell">
@@ -185,7 +185,7 @@ function importarView() {
   if (imp.step === 2) {
     return head + steps(2) + `
       <div class="proc">
-        <h2 class="large-title" style="margin-bottom:6px">Processando...</h2>
+        <h2 class="large-title item-heading">Processando...</h2>
         <p class="mut sm">Lendo sua fatura. Isso pode levar alguns segundos.</p>
         
         <div class="proc-ring-container">
@@ -206,7 +206,7 @@ function importarView() {
             <span>Extraindo dados</span>
           </div>
           <div class="proc-step-item active">
-            <div class="proc-step-icon" style="font-size:12px;font-weight:700">●</div>
+            <div class="proc-step-icon proc-step-active-mark">●</div>
             <span>Lendo lançamentos</span>
           </div>
           <div class="proc-step-item pending">
@@ -215,7 +215,7 @@ function importarView() {
           </div>
         </div>
 
-        <div class="actions" style="margin-top:24px">
+        <div class="actions actions-top-lg">
           <button type="button" class="btn secondary" data-a="impcancel">Cancelar</button>
         </div>
       </div>`;
@@ -242,7 +242,7 @@ function preview(imp) {
         <div class="conf-bank-header">
           <div class="banco-badge ${bm.cls}">${bm.sigla}</div>
           <div>
-            <div class="bold" style="font-size:18px">${esc(p.banco || 'Banco')}</div>
+            <div class="bold summary-name-lg">${esc(p.banco || 'Banco')}</div>
             <div class="mut sm">${esc(mesLabel(p.mes))}</div>
           </div>
         </div>
@@ -279,19 +279,19 @@ function preview(imp) {
       <p class="section-label">Ajustar informações</p>
       <div class="group">
         <label class="cell">
-          <span class="field-label" style="width:7.5rem">Banco</span>
+          <span class="field-label field-label-wide">Banco</span>
           <input id="bn" class="field bold" list="bl" value="${esc(p.banco)}" placeholder="Nome do banco">
         </label>
         <label class="cell">
-          <span class="field-label" style="width:7.5rem">Total</span>
+          <span class="field-label field-label-wide">Total</span>
           <input id="pt" class="field money bold" inputmode="decimal" value="${esc(p.total)}">
         </label>
         <label class="cell">
-          <span class="field-label" style="width:7.5rem">Vencimento</span>
+          <span class="field-label field-label-wide">Vencimento</span>
           <input id="pd" class="field" type="date" value="${esc(p.venc)}">
         </label>
         <label class="cell">
-          <span class="field-label" style="width:7.5rem">Mês</span>
+          <span class="field-label field-label-wide">Mês</span>
           <input id="pm" class="field" type="month" value="${esc(p.mes)}">
         </label>
       </div>
@@ -301,7 +301,7 @@ function preview(imp) {
 
       ${p.recorrentesSugeridos && p.recorrentesSugeridos.length > 0 ? `
         <!-- Recorrentes do mês anterior não encontrados na importação -->
-        <p class="section-label" style="margin-top:16px">Assinaturas do mês anterior não importadas</p>
+        <p class="section-label space-before-section">Assinaturas do mês anterior não importadas</p>
         <div class="group">
           ${p.recorrentesSugeridos.map((r, idx) => `
             <div class="cell">
@@ -314,13 +314,13 @@ function preview(imp) {
                   <span class="pill accent">${ICO.star} Recorrente do mês anterior</span>
                 </div>
               </div>
-              <button type="button" class="btn secondary sm" data-a="addrec" data-idx="${idx}" style="margin-left:8px">
+              <button type="button" class="btn secondary sm list-action" data-a="addrec" data-idx="${idx}">
                 ${ICO.plus} Adicionar
               </button>
             </div>
           `).join('')}
         </div>
-        <p class="footnote" style="margin:8px 16px 0">Toque em "Adicionar" para incluir o lançamento com o mesmo rateio do mês anterior.</p>
+        <p class="footnote hint-note">Toque em "Adicionar" para incluir o lançamento com o mesmo rateio do mês anterior.</p>
       ` : ''}
 
       <div class="actions">
@@ -331,8 +331,8 @@ function preview(imp) {
   // Etapa 4 — Revisão dos lançamentos (Screen 6 Mockup)
   if (step === 4) {
     return head + steps(4) + `
-      <div style="padding:0 16px 8px">
-        <h2 class="large-title" style="font-size:24px">Lançamentos da fatura</h2>
+      <div class="content-heading">
+        <h2 class="large-title compact-title">Lançamentos da fatura</h2>
         <p class="mut sm">${p.itens.length} lançamentos · ${R(p.total)}</p>
       </div>
       <div class="group">
@@ -341,7 +341,7 @@ function preview(imp) {
           const m = p.m && p.m[k];
           return `
             <div class="cell pressable" data-a="edititem" data-k="${k}" role="button" tabindex="0">
-              <span class="status-ico ok" style="width:24px;height:24px;border-radius:50%;background:var(--ok-bg);color:var(--ok);display:flex;align-items:center;justify-content:center;flex-shrink:0">${ICO.check}</span>
+              <span class="state-icon ok">${ICO.check}</span>
               <div class="grow">
                 <div class="item-main">
                   <span class="desc">${esc(i.s)}</span>
@@ -365,19 +365,19 @@ function preview(imp) {
   // Etapa 5 — Confirmação Final
   return head + steps(5) + `
     <div class="hero">
-      <div class="banco-badge ${bm.cls}" style="margin:0 auto 10px">${bm.sigla}</div>
-      <div class="bold" style="font-size:20px">${esc(p.banco || 'Banco')}</div>
-      <div class="mut sm" style="margin-bottom:8px">${esc(mesLabel(p.mes))}</div>
+      <div class="banco-badge ${bm.cls} summary-badge">${bm.sigla}</div>
+      <div class="bold summary-name">${esc(p.banco || 'Banco')}</div>
+      <div class="mut sm summary-subtitle">${esc(mesLabel(p.mes))}</div>
       <div class="money-xl">${R(p.total)}</div>
-      <p class="sm mut" style="margin-top:8px">${p.itens.length} lançamentos · venc. ${esc(dataCurta(p.venc) || '—')}</p>
-      <div class="item-meta" style="justify-content:center;margin-top:10px">
+      <p class="sm mut parcel-bank">${p.itens.length} lançamentos · venc. ${esc(dataCurta(p.venc) || '—')}</p>
+      <div class="item-meta centered-meta">
         <span class="pill ${ok ? 'ok' : 'warn'}"><i class="dot"></i>${ok ? 'Valores conferidos' : 'Divergência detectada'}</span>
       </div>
     </div>
 
     <div class="group">
       <label class="cell">
-        <input type="checkbox" id="auto" ${p.auto === false ? '' : 'checked'} style="width:22px;height:22px;accent-color:var(--accent)">
+        <input type="checkbox" id="auto" ${p.auto === false ? '' : 'checked'} class="item-check">
         <span class="grow">
           <span class="bold">Aplicar rateios automáticos</span><br>
           <span class="sm mut">Reaproveita divisões de parcelas e despesas recorrentes do mês anterior</span>

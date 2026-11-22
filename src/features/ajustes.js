@@ -92,7 +92,7 @@ async function ajustes() {
     <p class="section-label">Importação de e-mails</p>
     <div class="group">
       <button type="button" class="cell pressable" data-a="gauth">
-        <span class="ico gmail" style="width:28px;height:28px;border-radius:6px;background:rgba(234,67,53,0.12);color:#EA4335;display:flex;align-items:center;justify-content:center;margin-right:4px">${ICO.mail}</span>
+        <span class="brand-icon gmail">${ICO.mail}</span>
         <span class="grow">
           <span class="bold">Gmail</span>
           ${gStatus.email ? `<br><span class="sm mut">${esc(gStatus.email)}</span>` : ''}
@@ -101,7 +101,7 @@ async function ajustes() {
         <span class="chev">${ICO.chev}</span>
       </button>
       <button type="button" class="cell pressable" data-a="mauth">
-        <span class="ico outlook" style="width:28px;height:28px;border-radius:6px;background:rgba(0,120,212,0.12);color:#0078D4;display:flex;align-items:center;justify-content:center;margin-right:4px">${ICO.mail}</span>
+        <span class="brand-icon outlook">${ICO.mail}</span>
         <span class="grow">
           <span class="bold">Outlook</span>
           ${mStatus.email ? `<br><span class="sm mut">${esc(mStatus.email)}</span>` : ''}
@@ -111,12 +111,12 @@ async function ajustes() {
       </button>
       ${gConnected ? `
         <button type="button" class="cell pressable" data-a="disconn" data-prov="google">
-          <span style="color:#EA4335;margin-right:8px">${ICO.mail}</span>
+          <span class="brand-icon gmail large">${ICO.mail}</span>
           <span class="grow">Desconectar Gmail</span>
         </button>` : ''}
       ${mConnected ? `
         <button type="button" class="cell pressable" data-a="disconn" data-prov="microsoft">
-          <span style="color:#0078D4;margin-right:8px">${ICO.mail}</span>
+          <span class="brand-icon outlook large">${ICO.mail}</span>
           <span class="grow">Desconectar Outlook</span>
         </button>` : ''}
     </div>

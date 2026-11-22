@@ -126,30 +126,30 @@ function renderRateio(Ps, Rt, hint) {
 
   openSheet(`
     <h2>Rateio de Lançamento</h2>
-    <div class="sheet-pad" style="text-align:center;padding-bottom:8px">
-      <div class="bold" style="font-size:18px">${esc(l.descricao)}</div>
-      <div class="sm mut" style="margin-top:2px">
+    <div class="sheet-pad rateio-intro">
+      <div class="bold rateio-title">${esc(l.descricao)}</div>
+      <div class="sm mut caption-gap">
         <span class="money bold">${R(l.valor)}</span>
         ${l.data_transacao ? ` · ${dataCurta(l.data_transacao)}` : ''}
         ${parc ? ` · Parcela ${esc(parc)}` : ''}
       </div>
-      ${hint ? `<div class="pill accent" style="margin-top:8px">${ICO.star} ${esc(hint)}</div>` : ''}
+      ${hint ? `<div class="pill accent rateio-hint">${ICO.star} ${esc(hint)}</div>` : ''}
     </div>
 
     <!-- Alternador de Modo (Segmented Control) -->
-    <div class="seg" style="margin:10px 16px 12px">
+    <div class="seg rateio-seg">
       <button type="button" class="${pct ? '' : 'on'}" data-a="rmode" data-k="v">Por valor</button>
       <button type="button" class="${pct ? 'on' : ''}" data-a="rmode" data-k="p">Por porcentagem</button>
     </div>
 
     <!-- Toggle Assinatura Mensal -->
-    <div class="group" style="margin:0 16px 12px">
-      <label class="cell" style="padding:8px 0">
+    <div class="group rateio-group">
+      <label class="cell rateio-cell">
         <span class="grow">
           <span class="bold">${ICO.star} Assinatura mensal (recorrente)</span>
           <span class="sm mut">Este lançamento se repetirá todos os meses. O rateio será sugerido automaticamente nas próximas faturas deste banco.</span>
         </span>
-        <input type="checkbox" id="recToggle" ${isRecorrente ? 'checked' : ''} data-a="togglerecl" style="width:24px;height:24px;accent-color:var(--accent)">
+        <input type="checkbox" id="recToggle" ${isRecorrente ? 'checked' : ''} data-a="togglerecl" class="rateio-toggle">
       </label>
     </div>
 
@@ -165,9 +165,9 @@ function renderRateio(Ps, Rt, hint) {
         const initials = p.nome.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
         return `
           <div class="cell rat-row">
-            <label style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;cursor:pointer">
+            <label class="rateio-person">
               <input type="checkbox" data-pid="${p.id}" ${r ? 'checked' : ''}>
-              <div class="avatar" style="width:30px;height:30px;font-size:12px">${initials}</div>
+              <div class="avatar rateio-avatar">${initials}</div>
               <span class="bold ellipsis">${esc(p.nome)}</span>
             </label>
             <div>
@@ -179,8 +179,8 @@ function renderRateio(Ps, Rt, hint) {
     </div>
 
     <!-- Atalho para Adicionar Pessoa -->
-    <div style="padding:0 16px 8px;text-align:right">
-      <button type="button" class="btn ghost sm" data-a="addpui" style="display:inline-flex;padding:0">
+    <div class="rateio-add">
+      <button type="button" class="btn ghost sm" data-a="addpui">
         ${ICO.plus} Adicionar pessoa
       </button>
     </div>
@@ -192,9 +192,9 @@ function renderRateio(Ps, Rt, hint) {
     <div class="actions">
       <button type="button" class="btn primary" data-a="svrat">Confirmar</button>
       <button type="button" class="btn secondary" data-a="igual">Dividir igualmente</button>
-      <div style="display:flex;gap:10px">
-        <button type="button" class="btn ghost" style="flex:1" data-a="reuse">Reaproveitar anterior</button>
-        <button type="button" class="btn ghost bad" style="flex:1" data-a="ratclear">Limpar</button>
+      <div class="rateio-actions-row">
+        <button type="button" class="btn ghost" data-a="reuse">Reaproveitar anterior</button>
+        <button type="button" class="btn ghost bad" data-a="ratclear">Limpar</button>
       </div>
     </div>`);
 
@@ -204,15 +204,15 @@ function renderRateio(Ps, Rt, hint) {
 // Modal de Reaproveitamento de Rateio (Screen 9 Mockup)
 function modalReaproveitamento(match, lid) {
   openSheet(`
-    <div style="text-align:center;padding:12px 16px 0">
-      <div class="pill accent" style="margin-bottom:12px">${ICO.star} Rateio anterior</div>
-      <h2 style="padding:0 16px 6px">Este lançamento já foi rateado antes.</h2>
+    <div class="reuse-intro">
+      <div class="pill accent">${ICO.star} Rateio anterior</div>
+      <h2>Este lançamento já foi rateado antes.</h2>
       <p class="mut sm">Deseja reaproveitar a divisão do mês anterior?</p>
     </div>
 
     <div class="reuse-card">
-      <div class="bold" style="font-size:18px">${esc(S.l.descricao)}</div>
-      <div class="money-lg" style="margin:6px 0">${R(S.l.valor)}</div>
+      <div class="bold reuse-name">${esc(S.l.descricao)}</div>
+      <div class="money-lg reuse-value">${R(S.l.valor)}</div>
       <div class="sm mut">${match.info} · ${match.sh.map(x => `${esc(x.nome)} (${x.pct.toFixed(0)}%)`).join(' / ')}</div>
     </div>
 

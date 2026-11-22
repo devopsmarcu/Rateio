@@ -252,11 +252,11 @@ const A = {
       <h2>Editar Fatura</h2>
       <div class="group">
         <label class="cell">
-          <span class="field-label" style="width:7rem">Total</span>
+          <span class="field-label field-label-narrow">Total</span>
           <input id="ef_tot" class="field money bold" inputmode="decimal" value="${esc(f.valor_total)}">
         </label>
         <label class="cell">
-          <span class="field-label" style="width:7rem">Vencimento</span>
+          <span class="field-label field-label-narrow">Vencimento</span>
           <input id="ef_venc" class="field" type="date" value="${esc(f.data_vencimento || '')}">
         </label>
       </div>

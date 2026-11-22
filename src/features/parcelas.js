@@ -92,10 +92,10 @@ async function parcelas() {
 
     ${navigator.onLine ? '' : '<div class="offline-bar">Sem conexão. Funções locais continuam disponíveis.</div>'}
 
-    <p class="section-label" style="margin-top:16px">Compras parceladas</p>
+    <p class="section-label parcel-group-title">Compras parceladas</p>
     ${renderParcelasGrupos(gruposArray.filter(g => !g.recorrente), 'parcelado')}
 
-    <p class="section-label" style="margin-top:16px">Assinaturas mensais (recorrentes)</p>
+    <p class="section-label parcel-group-title">Assinaturas mensais (recorrentes)</p>
     ${renderParcelasGrupos(gruposArray.filter(g => g.recorrente), 'recorrente')}
   `;
 }
@@ -261,10 +261,10 @@ async function verGrupo(grupoData) {
       backBtn('parcelas', 'Parcelas')
     )}
     <div class="hero">
-      <div class="bold" style="font-size:18px">${esc(descricao_base)}</div>
-      <div class="sm mut" style="margin-top:4px">${esc(banco)}</div>
-      <div class="money-xl" style="margin-top:8px">${R(valor_parcela)}${grupo_parcela_id ? ` × ${n_parcelas}` : '/mês'}</div>
-      <div class="item-meta" style="justify-content:center;margin-top:10px">
+      <div class="bold parcel-description">${esc(descricao_base)}</div>
+      <div class="sm mut parcel-bank">${esc(banco)}</div>
+      <div class="money-xl parcel-total">${R(valor_parcela)}${grupo_parcela_id ? ` × ${n_parcelas}` : '/mês'}</div>
+      <div class="item-meta parcel-meta">
         ${grupo_parcela_id ? `
           <span class="pill">Total: ${R(valor_parcela * n_parcelas)}</span>
           <span class="pill ${parcelas.filter(p => p.mes <= S.mes).length === n_parcelas ? 'ok' : 'warn'}">${parcelas.filter(p => p.mes <= S.mes).length}/${n_parcelas} importadas</span>
@@ -298,7 +298,7 @@ async function verGrupo(grupoData) {
     </div>
 
     ${!recorrente ? `
-      <div class="actions" style="margin-top:16px">
+      <div class="actions spaced-actions">
         <button type="button" class="btn secondary" data-a="togglerec" data-grupo="${esc(grupoData)}">
           ${ICO.star} Marcar como assinatura mensal
         </button>

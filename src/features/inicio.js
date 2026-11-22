@@ -3,7 +3,7 @@
 // ==========================================================================
 import { S } from '../core/state.js';
 import { esc, R, vencida, proxVenc, diverge } from '../core/format.js';
-import { overlay, monthSel, empty, ICO } from '../core/ui.js';
+import { overlay, monthSel, empty, emptyAction, ICO } from '../core/ui.js';
 import { meses, faturaRows, q } from '../core/db.js';
 import { faturaCell } from '../core/banco.js';
 
@@ -57,7 +57,7 @@ async function inicio() {
       ${empty(
         'Nenhuma fatura',
         'Importe a primeira fatura para conferir lançamentos e dividir despesas.',
-        '<div class="actions" style="margin:0"><button type="button" class="btn primary" data-a="importar">' + ICO.plus + ' Importar fatura</button></div>'
+        emptyAction('importar', 'Importar fatura')
       )}`;
   }
 
@@ -78,7 +78,7 @@ async function inicio() {
       <div class="money-xl">${R(pend)}</div>
       <div class="bar-wrap">
         <div class="bar" aria-hidden="true">
-          <i style="width:${pct}%"></i>
+          <i class="hero-progress-bar" style="--progress:${pct}%"></i>
         </div>
       </div>
       <div class="sub-metrics">
@@ -86,7 +86,7 @@ async function inicio() {
           <div class="k">Pago</div>
           <div class="money ok">${R(pago)} <span class="sm mut">(${pct}%)</span></div>
         </div>
-        <div style="text-align:right">
+        <div class="summary-end">
           <div class="k">Total das faturas</div>
           <div class="money">${R(tot)}</div>
         </div>
